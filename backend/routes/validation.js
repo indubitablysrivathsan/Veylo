@@ -14,10 +14,8 @@ const router = express.Router();
 const validationService = require("../services/validationService");
 const { generateTestSuite } = require("../../validator/ai/testGenerator");
 const { detectAmbiguity } = require("../../validator/ai/ambiguityDetector");
-const { jobsStore } = require("./jobs");
 
-// Store validation reports
-const reports = new Map();
+const prisma = require("../db/prismaClient");
 
 /**
  * POST /validation/run
@@ -30,42 +28,89 @@ router.post("/run", async (req, res) => {
     const { jobId } = req.body;
     if (!jobId) return res.status(400).json({ error: "jobId is required" });
 
-    const job = jobsStore.get(parseInt(jobId));
+    const job = await prisma.job.findUnique({
+      where: { id: parseInt(jobId) }
+    });
+
     if (!job) return res.status(404).json({ error: "Job not found" });
+
     if (job.state !== "WORK_SUBMITTED") {
-      return res.status(400).json({ error: `Job must be in WORK_SUBMITTED state, currently: ${job.state}` });
+      return res.status(400).json({
+        error: `Job must be in WORK_SUBMITTED state, currently: ${job.state}`
+      });
     }
 
     // Run validation pipeline
     const report = await validationService.validateJob(job);
 
-    // Store report and update job state
-    reports.set(parseInt(jobId), report);
-    job.validationReport = report;
-    job.state = "VALIDATED";
+    // Store report in database
+    await prisma.validationReport.create({
+      data: {
+        jobId: job.id,
+        overallScore: report.overallScore,
+        verdict: report.verdict,
+        executionScore: report.executionScore || null,
+        testsPassed: report.testsPassed || null,
+        testsTotal: report.testsTotal || null,
+        structureScore: report.structureScore || null,
+        lintScore: report.lintScore || null,
+        semanticScore: report.semanticScore || null,
+        semanticReasoning: report.semanticReasoning || null,
+        reportHash: report.reportHash,
+        reportJson: report
+      }
+    });
+
+    // Update job state
+    await prisma.job.update({
+      where: { id: job.id },
+      data: {
+        state: "VALIDATED",
+        validatedAt: new Date()
+      }
+    });
 
     res.json({
       jobId,
       overallScore: report.overallScore,
       verdict: report.verdict,
       reportHash: report.reportHash,
-      report,
+      report
     });
+
   } catch (error) {
     console.error("[Validation] Run error:", error);
-    res.status(500).json({ error: "Validation pipeline failed", details: error.message });
+    res.status(500).json({
+      error: "Validation pipeline failed",
+      details: error.message
+    });
   }
 });
+
 
 /**
  * GET /validation/:jobId
  * Retrieve the validation report for a job.
  */
-router.get("/:jobId", (req, res) => {
-  const report = reports.get(parseInt(req.params.jobId));
-  if (!report) return res.status(404).json({ error: "No validation report found for this job" });
-  res.json(report);
+router.get("/:jobId", async (req, res) => {
+  try {
+
+    const report = await prisma.validationReport.findFirst({
+      where: { jobId: parseInt(req.params.jobId) },
+      orderBy: { createdAt: "desc" }
+    });
+
+    if (!report)
+      return res.status(404).json({ error: "No validation report found for this job" });
+
+    res.json(report);
+
+  } catch (error) {
+    console.error("[Validation] Fetch report error:", error);
+    res.status(500).json({ error: "Failed to fetch validation report" });
+  }
 });
+
 
 /**
  * POST /validation/generate-tests
@@ -76,15 +121,20 @@ router.get("/:jobId", (req, res) => {
 router.post("/generate-tests", async (req, res) => {
   try {
     const { description } = req.body;
-    if (!description) return res.status(400).json({ error: "description is required" });
+
+    if (!description)
+      return res.status(400).json({ error: "description is required" });
 
     const testSuite = await generateTestSuite(description);
+
     res.json({ testSuite });
+
   } catch (error) {
     console.error("[Validation] Test generation error:", error);
     res.status(500).json({ error: "Failed to generate test suite" });
   }
 });
+
 
 /**
  * POST /validation/check-ambiguity
@@ -94,11 +144,16 @@ router.post("/generate-tests", async (req, res) => {
  */
 router.post("/check-ambiguity", async (req, res) => {
   try {
+
     const { description } = req.body;
-    if (!description) return res.status(400).json({ error: "description is required" });
+
+    if (!description)
+      return res.status(400).json({ error: "description is required" });
 
     const result = await detectAmbiguity(description);
+
     res.json(result);
+
   } catch (error) {
     console.error("[Validation] Ambiguity check error:", error);
     res.status(500).json({ error: "Failed to check ambiguity" });
@@ -106,3 +161,5 @@ router.post("/check-ambiguity", async (req, res) => {
 });
 
 module.exports = router;
+
+

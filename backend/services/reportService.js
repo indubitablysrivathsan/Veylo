@@ -9,6 +9,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const prisma = require("../db/prisma/prismaClient");
 
 const REPORTS_DIR = path.join(__dirname, "..", "..", "data", "reports");
 
@@ -26,28 +27,35 @@ const reportCache = new Map();
  * @param {number} jobId
  * @param {object} report
  */
+
 async function storeReport(jobId, report) {
-  // Cache in memory
-  reportCache.set(jobId, report);
 
-  // Persist to file
-  const filePath = path.join(REPORTS_DIR, `report-${jobId}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(report, null, 2));
+  return prisma.validationReport.upsert({
+    where: { jobId },
+    update: {
+      overallScore: report.overallScore,
+      verdict: report.verdict,
+      reportJson: report
+    },
+    create: {
+      jobId,
+      overallScore: report.overallScore,
+      verdict: report.verdict,
+      reportJson: report
+    }
+  });
 
-  console.log(`[ReportService] Report stored for job ${jobId} (score: ${report.overallScore})`);
 }
 
-/**
- * Retrieve a validation report.
- *
- * @param {number} jobId
- * @returns {object|null}
- */
 async function getReport(jobId) {
-  // Check cache first
-  if (reportCache.has(jobId)) {
-    return reportCache.get(jobId);
-  }
+
+  return prisma.validationReport.findUnique({
+    where: { jobId }
+  });
+
+}
+
+module.exports = { storeReport, getReport };
 
   // Try loading from file
   const filePath = path.join(REPORTS_DIR, `report-${jobId}.json`);
@@ -58,7 +66,7 @@ async function getReport(jobId) {
   }
 
   return null;
-}
+
 
 /**
  * List all stored reports (summary view).

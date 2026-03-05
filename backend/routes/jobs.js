@@ -15,9 +15,8 @@ const router = express.Router();
 const escrowService = require("../services/escrowService");
 const crypto = require("crypto");
 
-// In-memory store (swap for DB in production)
-const jobs = new Map();
-let nextJobId = 1;
+// Database store (Prisma/PostgreSQL)
+const prisma = require("../db/prismaClient");
 
 /**
  * POST /jobs
@@ -32,27 +31,26 @@ router.post("/", async (req, res) => {
     }
 
     const requirementsHash = crypto.createHash("sha256").update(description).digest("hex");
+
     const testSuiteHash = testSuite
       ? crypto.createHash("sha256").update(JSON.stringify(testSuite)).digest("hex")
       : null;
 
-    const job = {
-      id: nextJobId++,
-      description,
-      clientAddress,
-      freelancerAddress: freelancerAddress || null,
-      deadline: deadline || null,
-      requirementsHash,
-      testSuiteHash,
-      testSuite: testSuite || null,
-      state: "CREATED",
-      repoUrl: null,
-      submissionHash: null,
-      validationReport: null,
-      createdAt: new Date().toISOString(),
-    };
-
-    jobs.set(job.id, job);
+    const job = await prisma.job.create({
+      data: {
+        description,
+        clientAddress,
+        freelancerAddress: freelancerAddress || null,
+        deadline: deadline ? new Date(deadline) : null,
+        requirementsHash,
+        testSuiteHash,
+        testSuiteJson: testSuite || null,
+        state: "CREATED",
+        repoUrl: null,
+        submissionHash: null,
+        createdAt: new Date(),
+      },
+    });
 
     // If blockchain interaction is enabled, create on-chain
     if (freelancerAddress && deadline) {
@@ -63,41 +61,71 @@ router.post("/", async (req, res) => {
           freelancerAddress,
           deadline,
         });
-        job.createTxHash = txHash;
+
+        await prisma.job.update({
+          where: { id: job.id },
+          data: { createTxHash: txHash },
+        });
+
       } catch (err) {
         console.warn("[Jobs] On-chain creation failed (continuing off-chain):", err.message);
       }
     }
 
     res.status(201).json(job);
+
   } catch (error) {
     console.error("[Jobs] Create error:", error);
     res.status(500).json({ error: "Failed to create job" });
   }
 });
 
+
 /**
  * GET /jobs
  * List all jobs with optional state filter.
  */
-router.get("/", (req, res) => {
-  const { state } = req.query;
-  let result = Array.from(jobs.values());
-  if (state) {
-    result = result.filter((j) => j.state === state.toUpperCase());
+router.get("/", async (req, res) => {
+  try {
+
+    const { state } = req.query;
+
+    let jobs = await prisma.job.findMany();
+
+    if (state) {
+      jobs = jobs.filter((j) => j.state === state.toUpperCase());
+    }
+
+    res.json(jobs);
+
+  } catch (error) {
+    console.error("[Jobs] Fetch error:", error);
+    res.status(500).json({ error: "Failed to fetch jobs" });
   }
-  res.json(result);
 });
+
 
 /**
  * GET /jobs/:id
  * Get full job details.
  */
-router.get("/:id", (req, res) => {
-  const job = jobs.get(parseInt(req.params.id));
-  if (!job) return res.status(404).json({ error: "Job not found" });
-  res.json(job);
+router.get("/:id", async (req, res) => {
+  try {
+
+    const job = await prisma.job.findUnique({
+      where: { id: parseInt(req.params.id) },
+    });
+
+    if (!job) return res.status(404).json({ error: "Job not found" });
+
+    res.json(job);
+
+  } catch (error) {
+    console.error("[Jobs] Get error:", error);
+    res.status(500).json({ error: "Failed to fetch job" });
+  }
 });
+
 
 /**
  * POST /jobs/:id/submit
@@ -105,28 +133,48 @@ router.get("/:id", (req, res) => {
  */
 router.post("/:id/submit", async (req, res) => {
   try {
-    const job = jobs.get(parseInt(req.params.id));
+
+    const job = await prisma.job.findUnique({
+      where: { id: parseInt(req.params.id) },
+    });
+
     if (!job) return res.status(404).json({ error: "Job not found" });
+
     if (job.state !== "CREATED" && job.state !== "FUNDED") {
       return res.status(400).json({ error: `Cannot submit in state: ${job.state}` });
     }
 
     const { repoUrl } = req.body;
+
     if (!repoUrl) return res.status(400).json({ error: "repoUrl is required" });
 
-    const submissionHash = crypto.createHash("sha256").update(repoUrl + Date.now()).digest("hex");
-    job.repoUrl = repoUrl;
-    job.submissionHash = submissionHash;
-    job.state = "WORK_SUBMITTED";
-    job.submittedAt = new Date().toISOString();
+    const submissionHash = crypto
+      .createHash("sha256")
+      .update(repoUrl + Date.now())
+      .digest("hex");
 
-    res.json({ message: "Work submitted", jobId: job.id, submissionHash });
+    const updatedJob = await prisma.job.update({
+      where: { id: job.id },
+      data: {
+        repoUrl,
+        submissionHash,
+        state: "WORK_SUBMITTED",
+        submittedAt: new Date(),
+      },
+    });
+
+    res.json({
+      message: "Work submitted",
+      jobId: updatedJob.id,
+      submissionHash,
+    });
+
   } catch (error) {
     console.error("[Jobs] Submit error:", error);
     res.status(500).json({ error: "Failed to submit work" });
   }
 });
 
-// Export both router and jobs store (for use by validation routes)
+
 module.exports = router;
-module.exports.jobsStore = jobs;
+

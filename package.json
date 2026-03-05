@@ -15,17 +15,20 @@
     "sandbox:build": "docker build -t escrow-sandbox ./sandbox"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "@prisma/client": "^5.22.0",
+    "dotenv": "^16.3.1",
     "ethers": "^6.9.0",
-    "dotenv": "^16.3.1"
+    "express": "^4.18.2",
+    "pg": "^8.20.0",
+    "prisma": "^5.22.0"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "hardhat": "^2.19.0",
-    "typescript": "^5.3.0",
-    "ts-node": "^10.9.0",
     "@types/node": "^20.10.0",
-    "nodemon": "^3.0.2"
+    "hardhat": "^2.19.0",
+    "nodemon": "^3.0.2",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0"
   },
   "engines": {
     "node": ">=18.0.0"

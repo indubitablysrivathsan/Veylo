@@ -10,16 +10,24 @@
 const express = require("express");
 const router = express.Router();
 
-// In-memory reputation store (mirrors on-chain state for fast reads)
-const reputations = new Map();
+const prisma = require("../db/prismaClient");
 
 /**
  * GET /reputation/:address
  * Get the reputation summary for a wallet address.
  */
-router.get("/:address", (req, res) => {
+router.get("/:address", async (req, res) => {
+
   const { address } = req.params;
-  const rep = reputations.get(address.toLowerCase());
+  const key = address.toLowerCase();
+
+  const rep = await prisma.reputation.findUnique({
+    where: { address: key }
+  });
+
+  const badges = await prisma.badge.findMany({
+    where: { address: key }
+  });
 
   if (!rep) {
     return res.json({
@@ -33,64 +41,111 @@ router.get("/:address", (req, res) => {
     });
   }
 
-  res.json(rep);
+  res.json({
+    ...rep,
+    badges: badges.map(b => b.badgeName)
+  });
 });
+
 
 /**
  * Internal: update reputation after a job is validated.
  * Called by validationService, not exposed as a public route.
  */
-function updateReputation(address, score) {
+async function updateReputation(address, score) {
+
   const key = address.toLowerCase();
-  let rep = reputations.get(key);
+
+  let rep = await prisma.reputation.findUnique({
+    where: { address: key }
+  });
 
   if (!rep) {
-    rep = {
-      address: key,
-      totalJobs: 0,
-      totalScore: 0,
-      averageScore: 0,
-      successfulJobs: 0,
-      disputedJobs: 0,
-      failedJobs: 0,
-      badges: [],
-    };
+
+    rep = await prisma.reputation.create({
+      data: {
+        address: key,
+        totalJobs: 0,
+        totalScore: 0,
+        averageScore: 0,
+        successfulJobs: 0,
+        disputedJobs: 0,
+        failedJobs: 0
+      }
+    });
+
   }
 
-  rep.totalJobs++;
-  rep.totalScore += score;
-  rep.averageScore = Math.round(rep.totalScore / rep.totalJobs);
+  let totalJobs = rep.totalJobs + 1;
+  let totalScore = rep.totalScore + score;
+  let averageScore = Math.round(totalScore / totalJobs);
 
-  if (score >= 75) rep.successfulJobs++;
-  else if (score >= 50) rep.disputedJobs++;
-  else rep.failedJobs++;
+  let successfulJobs = rep.successfulJobs;
+  let disputedJobs = rep.disputedJobs;
+  let failedJobs = rep.failedJobs;
+
+  if (score >= 75) successfulJobs++;
+  else if (score >= 50) disputedJobs++;
+  else failedJobs++;
+
+  const updated = await prisma.reputation.update({
+    where: { address: key },
+    data: {
+      totalJobs,
+      totalScore,
+      averageScore,
+      successfulJobs,
+      disputedJobs,
+      failedJobs
+    }
+  });
 
   // Award badges based on milestones
-  if (rep.totalJobs === 1 && !rep.badges.includes("First Job")) {
-    rep.badges.push("First Job");
-  }
-  if (rep.successfulJobs >= 5 && !rep.badges.includes("Reliable")) {
-    rep.badges.push("Reliable");
-  }
-  if (rep.successfulJobs >= 10 && !rep.badges.includes("Veteran")) {
-    rep.badges.push("Veteran");
-  }
-  if (rep.averageScore >= 90 && rep.totalJobs >= 3 && !rep.badges.includes("Elite")) {
-    rep.badges.push("Elite");
+  const existingBadges = await prisma.badge.findMany({
+    where: { address: key }
+  });
+
+  const badgeNames = existingBadges.map(b => b.badgeName);
+
+  async function award(name) {
+    if (!badgeNames.includes(name)) {
+      await prisma.badge.create({
+        data: {
+          address: key,
+          badgeName: name
+        }
+      });
+    }
   }
 
-  reputations.set(key, rep);
-  return rep;
+  if (totalJobs === 1) await award("First Job");
+  if (successfulJobs >= 5) await award("Reliable");
+  if (successfulJobs >= 10) await award("Veteran");
+  if (averageScore >= 90 && totalJobs >= 3) await award("Elite");
+
+  return updated;
 }
+
 
 /**
  * GET /reputation/:address/badges
  * Get NFT badges for an address.
  */
-router.get("/:address/badges", (req, res) => {
-  const rep = reputations.get(req.params.address.toLowerCase());
-  res.json({ badges: rep ? rep.badges : [] });
+router.get("/:address/badges", async (req, res) => {
+
+  const key = req.params.address.toLowerCase();
+
+  const badges = await prisma.badge.findMany({
+    where: { address: key }
+  });
+
+  res.json({
+    badges: badges.map(b => b.badgeName)
+  });
+
 });
+
 
 module.exports = router;
 module.exports.updateReputation = updateReputation;
+
