@@ -72,7 +72,7 @@ function createInMemoryClient() {
         inMemoryDb.validationReports.push(report);
         return report;
       },
-      findFirst: async ({ where }) => {
+      findFirst: async ({ where, orderBy } = {}) => {
         return inMemoryDb.validationReports.find(r => r.jobId === where.jobId) || null;
       },
       findUnique: async ({ where }) => {

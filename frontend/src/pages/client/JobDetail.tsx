@@ -184,12 +184,12 @@ export default function ClientJobDetail() {
                             <StatusBadge status={report.verdict} />
                         </div>
                         <div className="space-y-2.5">
-                            <ScoreBar label="Execution" weight={SCORE_WEIGHTS.execution} score={report.execution.score} />
-                            <ScoreBar label="Repo Viability" weight={SCORE_WEIGHTS.repoViability} score={report.repoViability.score} />
-                            <ScoreBar label="Lint" weight={SCORE_WEIGHTS.lint} score={report.lint.score} />
-                            <ScoreBar label="Semantic" weight={SCORE_WEIGHTS.semantic} score={report.semantic.score} />
+                            <ScoreBar label="Execution" weight={SCORE_WEIGHTS.execution} score={report.execution?.score ?? 0} />
+                            <ScoreBar label="Repo Viability" weight={SCORE_WEIGHTS.repoViability} score={report.repoViability?.score ?? 0} />
+                            <ScoreBar label="Lint" weight={SCORE_WEIGHTS.lint} score={report.lint?.score ?? 0} />
+                            <ScoreBar label="Semantic" weight={SCORE_WEIGHTS.semantic} score={report.semantic?.score ?? 0} />
                         </div>
-                        {report.semantic.reasoning && (
+                        {report.semantic?.reasoning && (
                             <div className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.05]">
                                 <p className="text-xs text-text-secondary font-body leading-relaxed">{report.semantic.reasoning}</p>
                             </div>

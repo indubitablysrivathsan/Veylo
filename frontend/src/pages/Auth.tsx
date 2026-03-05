@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import Aurora from '@/components/ui/Aurora'
@@ -24,12 +24,13 @@ export default function Auth() {
     const [loading, setLoading] = useState(false)
     const [step, setStep] = useState<'credentials' | 'role'>('credentials')
 
-    // Redirect if already authenticated
-    if (authState.isAuthenticated && authState.user) {
-        const userRole = authState.user.role || 'client'
-        navigate(userRole === 'freelancer' ? '/freelancer' : '/client', { replace: true })
-        return null
-    }
+    // Redirect if already authenticated (in useEffect to avoid setState-during-render)
+    useEffect(() => {
+        if (authState.isAuthenticated && authState.user) {
+            const userRole = authState.user.role || 'client'
+            navigate(userRole === 'freelancer' ? '/freelancer' : '/client', { replace: true })
+        }
+    }, [authState.isAuthenticated, authState.user, navigate])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()

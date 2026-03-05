@@ -18,14 +18,20 @@ export default function Marketplace() {
     const [jobs, setJobs] = useState<Job[]>([])
     const [search, setSearch] = useState('')
     const [sort, setSort] = useState<SortOption>('newest')
+    const [error, setError] = useState('')
     const navigate = useNavigate()
 
     useEffect(() => {
-        getJobs('FUNDED').then(all => setJobs(all.filter(j => j.state === 'FUNDED')))
+        getJobs('CREATED,FUNDED')
+            .then(setJobs)
+            .catch(err => setError(err instanceof Error ? err.message : 'Failed to load jobs'))
     }, [])
 
     const filtered = jobs
-        .filter(j => j.description.toLowerCase().includes(search.toLowerCase()))
+        .filter(j => {
+            const q = search.toLowerCase()
+            return j.description.toLowerCase().includes(q) || (j.title || '').toLowerCase().includes(q)
+        })
         .sort((a, b) => {
             if (sort === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             if (sort === 'closest') return (new Date(a.deadline || '9999').getTime()) - (new Date(b.deadline || '9999').getTime())
@@ -69,6 +75,13 @@ export default function Marketplace() {
                 </div>
             </div>
 
+            {/* Error Banner */}
+            {error && (
+                <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400 font-body">
+                    <p>{error}</p>
+                </div>
+            )}
+
             {/* Job grid */}
             {filtered.length === 0 ? (
                 <EmptyState icon={Search} title="No jobs found" description={search ? 'Try adjusting your search.' : 'No open jobs at the moment.'} />
@@ -77,7 +90,8 @@ export default function Marketplace() {
                     {filtered.map((job) => (
                         <motion.div key={job.id} variants={item}>
                             <SpotlightCard className="p-6 h-full">
-                                <p className="text-sm font-medium text-text-primary mb-3 leading-relaxed">{job.description.slice(0, 80)}...</p>
+                                {job.title && <h3 className="font-display font-semibold text-sm text-text-primary mb-1">{job.title}</h3>}
+                                <p className="text-sm text-text-secondary mb-3 leading-relaxed">{job.description.slice(0, 80)}...</p>
                                 <p className="font-mono text-xl font-bold text-violet-400 mb-3">{formatINR(job.paymentAmountINR || 25000)}</p>
                                 <div className="space-y-2 mb-4">
                                     <DeadlineCountdown deadline={job.deadline} />

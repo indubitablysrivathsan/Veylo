@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import GlassCard from '@/components/shared/GlassCard'
-import { checkAmbiguity, generateTests, createJob } from '@/lib/api'
+import { createJob, checkAmbiguity, generateTests, fundJob } from '@/lib/api'
 import { cn, formatINR } from '@/lib/utils'
 import type { AmbiguityResult, TestSuite, TestCase } from '@/types'
 import {
@@ -22,6 +22,8 @@ export default function CreateJob() {
     const [step, setStep] = useState(0)
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
+    const [techStack, setTechStack] = useState('')
+    const [expectedDeliverable, setExpectedDeliverable] = useState('')
     const [deadline, setDeadline] = useState('')
     const [escrow, setEscrow] = useState('25000')
     const [loading, setLoading] = useState(false)
@@ -30,22 +32,35 @@ export default function CreateJob() {
     const [reqHash, setReqHash] = useState('')
     const [testHash, setTestHash] = useState('')
     const navigate = useNavigate()
+    const [apiError, setApiError] = useState('')
 
 
     const analyzeRequirements = async () => {
         setLoading(true)
-        const result = await checkAmbiguity(description)
-        setAmbiguity(result)
-        setLoading(false)
-        setStep(1)
+        setApiError('')
+        try {
+            const result = await checkAmbiguity(description)
+            setAmbiguity(result)
+            setStep(1)
+        } catch (err) {
+            setApiError(err instanceof Error ? err.message : 'Failed to check ambiguity. Make sure the backend server is running.')
+        } finally {
+            setLoading(false)
+        }
     }
 
     const handleGenerateTests = async () => {
         setLoading(true)
-        const suite = await generateTests(description)
-        setTestSuite(suite)
-        setLoading(false)
-        setStep(2)
+        setApiError('')
+        try {
+            const suite = await generateTests(description)
+            setTestSuite(suite)
+            setStep(2)
+        } catch (err) {
+            setApiError(err instanceof Error ? err.message : 'Failed to generate tests. Make sure the backend server is running.')
+        } finally {
+            setLoading(false)
+        }
     }
 
     const approveAndLock = async () => {
@@ -58,13 +73,41 @@ export default function CreateJob() {
         setTestHash(th)
 
         setLoading(true)
-        await createJob({ title, description, clientAddress: 'platform', deadline: deadline || undefined, testSuite: testSuite || undefined, paymentAmountINR: parseFloat(escrow) || undefined })
-        setLoading(false)
-        setStep(3)
+        setApiError('')
+        try {
+            const job = await createJob({
+                title,
+                description,
+                clientAddress: 'platform',
+                deadline: deadline || undefined,
+                testSuite: testSuite || undefined,
+                paymentAmountINR: parseFloat(escrow) || undefined,
+                requirementsHash: rh,
+                testSuiteHash: th,
+                techStack: techStack || undefined,
+                expectedDeliverable: expectedDeliverable || undefined,
+            })
+            setStep(3)
+            // Store job ID for redirect and auto-fund
+            if (job?.id) {
+                sessionStorage.setItem('veylo_last_job_id', String(job.id))
+                // Auto-fund to transition CREATED → FUNDED
+                fundJob(job.id).catch(() => { })
+            }
+        } catch (err) {
+            setApiError(err instanceof Error ? err.message : 'Failed to create job.')
+        } finally {
+            setLoading(false)
+        }
     }
 
-    const fundEscrow = () => {
-        navigate('/client')
+    const confirmAndPublish = () => {
+        const jobId = sessionStorage.getItem('veylo_last_job_id')
+        if (jobId) {
+            navigate(`/client/job/${jobId}`)
+        } else {
+            navigate('/client')
+        }
     }
 
     const slideVariants = {
@@ -94,6 +137,14 @@ export default function CreateJob() {
                 ))}
             </div>
 
+            {/* API Error Banner */}
+            {apiError && (
+                <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400 font-body">
+                    <p className="font-medium mb-1">Error</p>
+                    <p>{apiError}</p>
+                </div>
+            )}
+
             {/* Step content */}
             <AnimatePresence mode="wait">
                 <motion.div
@@ -111,7 +162,7 @@ export default function CreateJob() {
                                 <input
                                     value={title}
                                     onChange={e => setTitle(e.target.value)}
-                                    placeholder="Python REST API for Fibonacci Sequence"
+                                    placeholder="e.g. Python REST API for Fibonacci Sequence"
                                     className="w-full px-4 py-2.5 rounded-lg bg-white/[0.035] border border-white/[0.07] text-text-primary text-sm font-body placeholder:text-text-muted focus:outline-none focus:border-violet-500/40 transition-colors"
                                 />
                             </div>
@@ -120,10 +171,30 @@ export default function CreateJob() {
                                 <textarea
                                     value={description}
                                     onChange={e => setDescription(e.target.value)}
-                                    rows={6}
+                                    rows={5}
                                     placeholder="Be specific about inputs, outputs, constraints, and acceptance criteria."
                                     className="w-full px-4 py-3 rounded-lg bg-white/[0.035] border border-white/[0.07] text-text-primary text-sm font-body placeholder:text-text-muted focus:outline-none focus:border-violet-500/40 transition-colors resize-none"
                                 />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs text-text-secondary mb-1.5 font-body">Technology Stack</label>
+                                    <input
+                                        value={techStack}
+                                        onChange={e => setTechStack(e.target.value)}
+                                        placeholder="e.g. Python, Flask, PostgreSQL"
+                                        className="w-full px-4 py-2.5 rounded-lg bg-white/[0.035] border border-white/[0.07] text-text-primary text-sm font-body placeholder:text-text-muted focus:outline-none focus:border-violet-500/40 transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-text-secondary mb-1.5 font-body">Expected Deliverable</label>
+                                    <input
+                                        value={expectedDeliverable}
+                                        onChange={e => setExpectedDeliverable(e.target.value)}
+                                        placeholder="e.g. REST API with docs"
+                                        className="w-full px-4 py-2.5 rounded-lg bg-white/[0.035] border border-white/[0.07] text-text-primary text-sm font-body placeholder:text-text-muted focus:outline-none focus:border-violet-500/40 transition-colors"
+                                    />
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -136,7 +207,7 @@ export default function CreateJob() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-text-secondary mb-1.5 font-body">Payment (₹)</label>
+                                    <label className="block text-xs text-text-secondary mb-1.5 font-body">Payment Amount (₹)</label>
                                     <input
                                         type="number"
                                         step="1"
@@ -249,11 +320,11 @@ export default function CreateJob() {
 
                     {step === 3 && (
                         <GlassCard variant="elevated" className="p-7 space-y-5">
-                            <h2 className="font-display font-semibold text-base text-text-primary">Fund Escrow</h2>
+                            <h2 className="font-display font-semibold text-base text-text-primary">Job Summary</h2>
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="text-text-muted font-body">Title</span>
-                                    <span className="text-text-primary">{title}</span>
+                                    <span className="text-text-primary">{title || 'Untitled Job'}</span>
                                 </div>
                                 <div className="gradient-divider" />
                                 <div className="flex items-center justify-between text-sm">
@@ -269,12 +340,24 @@ export default function CreateJob() {
                                     <span className="text-text-muted font-body">Payment Amount</span>
                                     <span className="font-mono font-semibold text-text-primary">{formatINR(escrow)}</span>
                                 </div>
+                                {techStack && (
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-text-muted font-body">Tech Stack</span>
+                                        <span className="text-text-secondary text-xs">{techStack}</span>
+                                    </div>
+                                )}
+                                {expectedDeliverable && (
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-text-muted font-body">Deliverable</span>
+                                        <span className="text-text-secondary text-xs">{expectedDeliverable}</span>
+                                    </div>
+                                )}
                             </div>
                             <button
-                                onClick={fundEscrow}
-                                className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors"
+                                onClick={confirmAndPublish}
+                                className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors"
                             >
-                                <Coins className="w-4 h-4" /> Fund Escrow
+                                <Coins className="w-4 h-4" /> Confirm & Publish Job
                             </button>
                         </GlassCard>
                     )}

@@ -12,7 +12,9 @@
     "hardhat:node": "npx hardhat node",
     "validate": "npx ts-node scripts/runValidator.ts",
     "test:contracts": "npx hardhat test",
-    "sandbox:build": "docker build -t escrow-sandbox ./sandbox"
+    "sandbox:build": "docker build -t escrow-sandbox ./sandbox",
+    "lint": "npx eslint . --ext .js",
+    "lint:fix": "npx eslint . --ext .js --fix"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -87,10 +87,10 @@ export default function ValidationView() {
 
                         {/* Score bars */}
                         <div className="max-w-md mx-auto space-y-2.5 mb-6">
-                            <ScoreBar label="Execution" weight={SCORE_WEIGHTS.execution} score={finalReport.execution.score} />
-                            <ScoreBar label="Repo Viability" weight={SCORE_WEIGHTS.repoViability} score={finalReport.repoViability.score} />
-                            <ScoreBar label="Lint" weight={SCORE_WEIGHTS.lint} score={finalReport.lint.score} />
-                            <ScoreBar label="Semantic" weight={SCORE_WEIGHTS.semantic} score={finalReport.semantic.score} />
+                            <ScoreBar label="Execution" weight={SCORE_WEIGHTS.execution} score={finalReport.execution?.score ?? 0} />
+                            <ScoreBar label="Repo Viability" weight={SCORE_WEIGHTS.repoViability} score={finalReport.repoViability?.score ?? 0} />
+                            <ScoreBar label="Lint" weight={SCORE_WEIGHTS.lint} score={finalReport.lint?.score ?? 0} />
+                            <ScoreBar label="Semantic" weight={SCORE_WEIGHTS.semantic} score={finalReport.semantic?.score ?? 0} />
                         </div>
 
                         {/* Verdict */}

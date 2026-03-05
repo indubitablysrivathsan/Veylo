@@ -24,6 +24,7 @@ export default function FreelancerJobDetail() {
     const [submitted, setSubmitted] = useState(false)
     const [accepting, setAccepting] = useState(false)
     const [accepted, setAccepted] = useState(false)
+    const [error, setError] = useState('')
 
     useEffect(() => {
         if (id) getJobById(Number(id)).then(setJob)
@@ -32,21 +33,33 @@ export default function FreelancerJobDetail() {
     if (!job) return <div className="p-8 text-text-muted">Loading...</div>
 
     const report = job.validationReport
-    const isOpen = job.state === 'FUNDED' && !job.freelancerAddress
-    const canSubmit = (job.state === 'FUNDED' && (job.freelancerAddress || accepted))
+    const isOpen = (job.state === 'CREATED' || job.state === 'FUNDED') && !job.freelancerAddress
+    const canSubmit = ((job.state === 'CREATED' || job.state === 'FUNDED') && (job.freelancerAddress || accepted))
 
     const handleAcceptJob = async () => {
         setAccepting(true)
-        await acceptJob(job.id, auth.user?.email || 'freelancer')
-        setAccepting(false)
-        setAccepted(true)
+        setError('')
+        try {
+            await acceptJob(job.id, auth.user?.email || 'freelancer')
+            setAccepted(true)
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to accept job')
+        } finally {
+            setAccepting(false)
+        }
     }
 
     const handleSubmit = async () => {
         setSubmitting(true)
-        await submitWorkApi(job.id, repoUrl)
-        setSubmitting(false)
-        setSubmitted(true)
+        setError('')
+        try {
+            await submitWorkApi(job.id, repoUrl)
+            setSubmitted(true)
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to submit work')
+        } finally {
+            setSubmitting(false)
+        }
     }
 
     const handleDownloadTestSuite = () => {
@@ -66,12 +79,19 @@ export default function FreelancerJobDetail() {
             <div className="flex items-start justify-between mb-6">
                 <div>
                     <div className="flex items-center gap-3 mb-1">
-                        <h1 className="font-display font-bold text-xl text-text-primary">{job.description.slice(0, 70)}...</h1>
+                        <h1 className="font-display font-bold text-xl text-text-primary">{job.title || job.description.slice(0, 70)}...</h1>
                         <StatusBadge status={job.state} />
                     </div>
                     <p className="font-mono text-xs text-text-muted">Job #{job.id}</p>
                 </div>
             </div>
+
+            {/* Error Banner */}
+            {error && (
+                <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400 font-body">
+                    <p>{error}</p>
+                </div>
+            )}
 
             {/* Locked requirements */}
             <GlassCard className="p-6 mb-6">
@@ -163,7 +183,7 @@ export default function FreelancerJobDetail() {
             )}
 
             {/* Submit work */}
-            {(canSubmit || job.state === 'FUNDED') && !submitted && (
+            {(canSubmit || job.state === 'CREATED' || job.state === 'FUNDED') && !submitted && (
                 <GlassCard variant="elevated" className="p-6 mb-6">
                     <h2 className="font-display font-semibold text-base text-text-primary mb-4">Submit Work</h2>
                     <div className="space-y-4">
@@ -204,10 +224,10 @@ export default function FreelancerJobDetail() {
                         <StatusBadge status={report.verdict} />
                     </div>
                     <div className="space-y-2.5">
-                        <ScoreBar label="Execution" weight={SCORE_WEIGHTS.execution} score={report.execution.score} />
-                        <ScoreBar label="Repo Viability" weight={SCORE_WEIGHTS.repoViability} score={report.repoViability.score} />
-                        <ScoreBar label="Lint" weight={SCORE_WEIGHTS.lint} score={report.lint.score} />
-                        <ScoreBar label="Semantic" weight={SCORE_WEIGHTS.semantic} score={report.semantic.score} />
+                        <ScoreBar label="Execution" weight={SCORE_WEIGHTS.execution} score={report.execution?.score ?? 0} />
+                        <ScoreBar label="Repo Viability" weight={SCORE_WEIGHTS.repoViability} score={report.repoViability?.score ?? 0} />
+                        <ScoreBar label="Lint" weight={SCORE_WEIGHTS.lint} score={report.lint?.score ?? 0} />
+                        <ScoreBar label="Semantic" weight={SCORE_WEIGHTS.semantic} score={report.semantic?.score ?? 0} />
                     </div>
                 </GlassCard>
             )}
