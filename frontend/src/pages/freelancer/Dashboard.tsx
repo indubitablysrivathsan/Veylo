@@ -9,7 +9,7 @@ import SpotlightCard from '@/components/ui/SpotlightCard'
 import CountUp from '@/components/ui/CountUp'
 import AnimatedList from '@/components/ui/AnimatedList'
 import { getJobs } from '@/lib/api'
-import { formatEth } from '@/lib/utils'
+import { formatINR } from '@/lib/utils'
 import type { Job } from '@/types'
 import { Briefcase, Coins, BarChart3, Shield, FolderCode, Search } from 'lucide-react'
 
@@ -28,7 +28,7 @@ export default function FreelancerDashboard() {
 
     const stats = [
         { icon: Briefcase, label: 'Active Jobs', value: activeCount },
-        { icon: Coins, label: 'Total Earned', value: 2.5, suffix: ' ETH', decimals: 2 },
+        { icon: Coins, label: 'Total Earned', value: 120000, prefix: '₹', decimals: 0 },
         { icon: BarChart3, label: 'Avg Score', value: 91, suffix: '%' },
         { icon: Shield, label: 'Reputation', value: 91 },
     ]
@@ -65,7 +65,7 @@ export default function FreelancerDashboard() {
                         <motion.div key={job.id} variants={item} initial="hidden" animate="show" transition={{ delay: i * 0.07 }}>
                             <SpotlightCard className="p-6 h-full cursor-pointer" onClick={() => navigate(`/freelancer/job/${job.id}`)}>
                                 <p className="text-sm font-medium text-text-primary mb-2">{job.description.slice(0, 60)}...</p>
-                                <p className="font-mono text-lg font-bold text-violet-400 mb-3">{formatEth(1.0 + i * 0.5)}</p>
+                                <p className="font-mono text-lg font-bold text-violet-400 mb-3">{formatINR(job.paymentAmountINR || 25000)}</p>
                                 <DeadlineCountdown deadline={job.deadline} />
                             </SpotlightCard>
                         </motion.div>

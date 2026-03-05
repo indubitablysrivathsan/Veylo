@@ -5,7 +5,7 @@ import SpotlightCard from '@/components/ui/SpotlightCard'
 import DeadlineCountdown from '@/components/shared/DeadlineCountdown'
 import EmptyState from '@/components/shared/EmptyState'
 import { getJobs } from '@/lib/api'
-import { formatEth, formatAddress } from '@/lib/utils'
+import { formatINR, formatAddress } from '@/lib/utils'
 import type { Job } from '@/types'
 import { Search, ArrowRight, SortAsc } from 'lucide-react'
 
@@ -78,7 +78,7 @@ export default function Marketplace() {
                         <motion.div key={job.id} variants={item}>
                             <SpotlightCard className="p-6 h-full">
                                 <p className="text-sm font-medium text-text-primary mb-3 leading-relaxed">{job.description.slice(0, 80)}...</p>
-                                <p className="font-mono text-xl font-bold text-violet-400 mb-3">{formatEth(1.5)}</p>
+                                <p className="font-mono text-xl font-bold text-violet-400 mb-3">{formatINR(job.paymentAmountINR || 25000)}</p>
                                 <div className="space-y-2 mb-4">
                                     <DeadlineCountdown deadline={job.deadline} />
                                     <p className="text-xs text-text-muted font-mono">{formatAddress(job.clientAddress)}</p>

@@ -14,16 +14,20 @@ export function formatHash(hash: string, start = 6, end = 4): string {
     return `${hash.slice(0, start + 2)}...${hash.slice(-end)}`
 }
 
-export function formatEth(amount: string | number): string {
+export function formatINR(amount: string | number): string {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount
-    if (isNaN(num)) return '0.00 ETH'
-    return `${num.toFixed(2)} ETH`
+    if (isNaN(num)) return '₹0'
+    return `₹${num.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 }
 
-export function formatUsd(ethAmount: string | number, ethPrice = 3200): string {
-    const num = typeof ethAmount === 'string' ? parseFloat(ethAmount) : ethAmount
-    if (isNaN(num)) return '$0.00'
-    return `$${(num * ethPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+/** @deprecated Use formatINR instead */
+export function formatEth(amount: string | number): string {
+    return formatINR(amount)
+}
+
+/** @deprecated Use formatINR instead */
+export function formatUsd(): string {
+    return ''
 }
 
 export function formatDate(dateStr: string | null): string {

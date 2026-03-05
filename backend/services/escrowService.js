@@ -1,11 +1,12 @@
 /**
  * services/escrowService.js
  * ──────────────────────────
- * Service layer for interacting with the Escrow smart contract.
- * Uses ethers.js to call contract functions on Sepolia testnet.
+ * Service layer for blockchain trust verification.
+ * Stores requirement hashes, submission hashes, and validation report
+ * hashes on-chain for tamper-proof auditability.
  *
- * In hackathon mode, blockchain calls are optional — the service
- * gracefully falls back to off-chain state if no provider is available.
+ * NOTE: Blockchain is used ONLY for trust hashes — NOT for payments.
+ * Payments are handled in INR (₹) through the platform.
  */
 
 const { ethers } = require("ethers");

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import GlassCard from '@/components/shared/GlassCard'
 import StatusBadge from '@/components/shared/StatusBadge'
 import HashDisplay from '@/components/shared/HashDisplay'
-import WalletAddress from '@/components/shared/WalletAddress'
+
 import DeadlineCountdown from '@/components/shared/DeadlineCountdown'
 import ScoreDisplay from '@/components/shared/ScoreDisplay'
 import ScoreBar from '@/components/shared/ScoreBar'
@@ -72,7 +72,7 @@ export default function ClientJobDetail() {
                         {job.freelancerAddress ? (
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-text-muted">Freelancer</span>
-                                <WalletAddress address={job.freelancerAddress} />
+                                <span className="font-mono text-xs text-text-secondary">{job.freelancerAddress}</span>
                             </div>
                         ) : (
                             <p className="text-xs text-text-muted">Awaiting freelancer</p>
@@ -185,7 +185,7 @@ export default function ClientJobDetail() {
                         </div>
                         <div className="space-y-2.5">
                             <ScoreBar label="Execution" weight={SCORE_WEIGHTS.execution} score={report.execution.score} />
-                            <ScoreBar label="Structure" weight={SCORE_WEIGHTS.structure} score={report.structure.score} />
+                            <ScoreBar label="Repo Viability" weight={SCORE_WEIGHTS.repoViability} score={report.repoViability.score} />
                             <ScoreBar label="Lint" weight={SCORE_WEIGHTS.lint} score={report.lint.score} />
                             <ScoreBar label="Semantic" weight={SCORE_WEIGHTS.semantic} score={report.semantic.score} />
                         </div>

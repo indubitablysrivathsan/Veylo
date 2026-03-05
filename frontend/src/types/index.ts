@@ -38,7 +38,7 @@ export interface ValidationReport {
         testsTotal: number
         timedOut: boolean
     }
-    structure: {
+    repoViability: {
         score: number
         passed: number
         total: number
@@ -65,6 +65,7 @@ export interface ValidationReport {
 
 export interface Job {
     id: number
+    title?: string
     description: string
     clientAddress: string
     freelancerAddress: string | null
@@ -75,7 +76,7 @@ export interface Job {
     testSuite: TestSuite | null
     state: JobState
     outcome: string
-    amountWei: string | null
+    paymentAmountINR: number | null
     repoUrl: string | null
     submissionHash: string | null
     validationReport: ValidationReport | null
@@ -118,18 +119,22 @@ export interface ReputationProfile {
     badges: string[]
 }
 
-// ── App State ──────────────────────────────────────
-export interface WalletState {
-    address: string | null
-    chainId: number | null
-    balance: string | null
-    isConnecting: boolean
-}
-
+// ── Auth ───────────────────────────────────────────
 export type UserRole = 'client' | 'freelancer' | null
 
+export interface User {
+    id: number
+    email: string
+    name: string | null
+    role: UserRole
+    oauthProvider: string | null
+    createdAt?: string
+}
+
+// ── App State ──────────────────────────────────────
 export interface AppState {
     role: UserRole
+    user: User | null
 }
 
 // ── Activity Feed ──────────────────────────────────

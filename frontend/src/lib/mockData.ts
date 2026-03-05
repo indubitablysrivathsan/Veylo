@@ -69,7 +69,7 @@ export const mockValidationReportPass: ValidationReport = {
     overallScore: 83,
     verdict: 'PASS',
     execution: { score: 88, testsPassed: 5, testsTotal: 6, timedOut: false },
-    structure: {
+    repoViability: {
         score: 100, passed: 4, total: 4, details: [
             { path: 'app.py', found: true },
             { path: 'requirements.txt', found: true },
@@ -92,7 +92,7 @@ export const mockValidationReportFail: ValidationReport = {
     overallScore: 41,
     verdict: 'FAIL',
     execution: { score: 33, testsPassed: 2, testsTotal: 6, timedOut: true },
-    structure: {
+    repoViability: {
         score: 75, passed: 3, total: 4, details: [
             { path: 'app.py', found: true },
             { path: 'requirements.txt', found: true },
@@ -125,7 +125,7 @@ export const mockJobs: Job[] = [
         testSuite: mockTestSuites.python_api,
         state: 'VALIDATED',
         outcome: 'PAID',
-        amountWei: '500000000000000000',
+        paymentAmountINR: 25000,
         repoUrl: 'https://github.com/dev/fibonacci-api',
         submissionHash: '0xd4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5',
         validationReport: mockValidationReportPass,
@@ -149,7 +149,7 @@ export const mockJobs: Job[] = [
         testSuite: mockTestSuites.js_frontend,
         state: 'WORK_SUBMITTED',
         outcome: 'NONE',
-        amountWei: '750000000000000000',
+        paymentAmountINR: 45000,
         repoUrl: 'https://github.com/dev/sales-dashboard',
         submissionHash: '0xc5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6',
         validationReport: null,
@@ -173,7 +173,7 @@ export const mockJobs: Job[] = [
         testSuite: mockTestSuites.data_script,
         state: 'FUNDED',
         outcome: 'NONE',
-        amountWei: '1000000000000000000',
+        paymentAmountINR: 75000,
         repoUrl: null,
         submissionHash: null,
         validationReport: null,
@@ -197,7 +197,7 @@ export const mockJobs: Job[] = [
         testSuite: null,
         state: 'CREATED',
         outcome: 'NONE',
-        amountWei: null,
+        paymentAmountINR: null,
         repoUrl: null,
         submissionHash: null,
         validationReport: null,
@@ -221,7 +221,7 @@ export const mockJobs: Job[] = [
         testSuite: null,
         state: 'CLOSED',
         outcome: 'REFUNDED',
-        amountWei: '500000000000000000',
+        paymentAmountINR: 25000,
         repoUrl: 'https://github.com/dev/sol-audit',
         submissionHash: '0xf6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7',
         validationReport: mockValidationReportFail,
@@ -239,7 +239,7 @@ export const mockJobs: Job[] = [
 export const mockPipelineStages: PipelineStage[] = [
     { id: 'clone', name: 'Repository Clone', description: 'Cloning submission repository', status: 'pending', score: null, details: '24 files cloned' },
     { id: 'deps', name: 'Dependency Installation', description: 'Installing project dependencies', status: 'pending', score: null, details: '12 packages installed' },
-    { id: 'structure', name: 'Structural Validation', description: 'Checking required files and dirs', status: 'pending', score: 100, details: '4/4 required paths found' },
+    { id: 'repoViability', name: 'Repository Viability', description: 'Checking repository contains source files', status: 'pending', score: 100, details: 'Valid project structure detected' },
     { id: 'execution', name: 'Test Execution', description: 'Running test suite in sandbox', status: 'pending', score: 88, details: '5/6 tests passed' },
     { id: 'lint', name: 'Static Analysis', description: 'Running linter and code quality', status: 'pending', score: 72, details: '3 errors, 8 warnings' },
     { id: 'semantic', name: 'Semantic AI Analysis', description: 'Qwen2.5-Coder evaluating compliance', status: 'pending', score: 79, details: '82% spec compliance' },

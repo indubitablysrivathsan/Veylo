@@ -12,6 +12,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const escrowService = require("./backend/services/escrowService");
 const modelClient = require("./validator/ai/modelClient");
 
@@ -25,6 +26,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 // Request logging
 app.use((req, res, next) => {
@@ -33,6 +35,7 @@ app.use((req, res, next) => {
 });
 
 // ─── Routes ───────────────────────────────────────────────
+app.use("/api/auth", require("./backend/routes/auth"));
 app.use("/api/jobs", require("./backend/routes/jobs"));
 app.use("/api/validation", require("./backend/routes/validation"));
 app.use("/api/reputation", require("./backend/routes/reputation"));
@@ -58,17 +61,17 @@ app.get("/", (req, res) => {
     name: "Blockchain Escrow Platform",
     version: "0.1.0",
     endpoints: {
-      "POST /api/jobs":                    "Create a new job",
-      "GET  /api/jobs":                    "List all jobs",
-      "GET  /api/jobs/:id":                "Get job details",
-      "PUT  /api/jobs/:id/accept":          "Accept a job (freelancer)",
-      "POST /api/jobs/:id/submit":         "Submit work for a job",
-      "POST /api/validation/run":          "Trigger validation pipeline",
-      "GET  /api/validation/:jobId":       "Get validation report",
+      "POST /api/jobs": "Create a new job",
+      "GET  /api/jobs": "List all jobs",
+      "GET  /api/jobs/:id": "Get job details",
+      "PUT  /api/jobs/:id/accept": "Accept a job (freelancer)",
+      "POST /api/jobs/:id/submit": "Submit work for a job",
+      "POST /api/validation/run": "Trigger validation pipeline",
+      "GET  /api/validation/:jobId": "Get validation report",
       "POST /api/validation/generate-tests": "Generate test suite from description",
       "POST /api/validation/check-ambiguity": "Check spec for ambiguities",
-      "GET  /api/reputation/:address":     "Get reputation for address",
-      "GET  /api/health":                  "System health check",
+      "GET  /api/reputation/:address": "Get reputation for address",
+      "GET  /api/health": "System health check",
     },
   });
 });

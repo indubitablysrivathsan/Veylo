@@ -8,7 +8,7 @@ import DeadlineCountdown from '@/components/shared/DeadlineCountdown'
 import ScoreDisplay from '@/components/shared/ScoreDisplay'
 import ScoreBar from '@/components/shared/ScoreBar'
 import { getJobById, submitWork as submitWorkApi, acceptJob } from '@/lib/api'
-import { useWallet } from '@/hooks/useWallet'
+import { useAuth } from '@/hooks/useAuth'
 import { cn, formatDate } from '@/lib/utils'
 import { SCORE_WEIGHTS } from '@/lib/constants'
 import type { Job, TestCase } from '@/types'
@@ -17,7 +17,7 @@ import { Lock, FileText, Send, ExternalLink, Download, Play, CheckCircle2 } from
 export default function FreelancerJobDetail() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { state: wallet } = useWallet()
+    const { state: auth } = useAuth()
     const [job, setJob] = useState<Job | null>(null)
     const [repoUrl, setRepoUrl] = useState('')
     const [submitting, setSubmitting] = useState(false)
@@ -33,11 +33,11 @@ export default function FreelancerJobDetail() {
 
     const report = job.validationReport
     const isOpen = job.state === 'FUNDED' && !job.freelancerAddress
-    const canSubmit = (job.state === 'FUNDED' && (job.freelancerAddress === wallet.address || accepted))
+    const canSubmit = (job.state === 'FUNDED' && (job.freelancerAddress || accepted))
 
     const handleAcceptJob = async () => {
         setAccepting(true)
-        await acceptJob(job.id, wallet.address || '')
+        await acceptJob(job.id, auth.user?.email || 'freelancer')
         setAccepting(false)
         setAccepted(true)
     }
@@ -205,7 +205,7 @@ export default function FreelancerJobDetail() {
                     </div>
                     <div className="space-y-2.5">
                         <ScoreBar label="Execution" weight={SCORE_WEIGHTS.execution} score={report.execution.score} />
-                        <ScoreBar label="Structure" weight={SCORE_WEIGHTS.structure} score={report.structure.score} />
+                        <ScoreBar label="Repo Viability" weight={SCORE_WEIGHTS.repoViability} score={report.repoViability.score} />
                         <ScoreBar label="Lint" weight={SCORE_WEIGHTS.lint} score={report.lint.score} />
                         <ScoreBar label="Semantic" weight={SCORE_WEIGHTS.semantic} score={report.semantic.score} />
                     </div>

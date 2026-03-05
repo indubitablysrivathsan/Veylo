@@ -24,7 +24,7 @@ const prisma = require("../db/prismaClient");
  */
 router.post("/", async (req, res) => {
   try {
-    const { description, freelancerAddress, clientAddress, deadline, testSuite } = req.body;
+    const { title, description, freelancerAddress, clientAddress, deadline, testSuite, paymentAmountINR } = req.body;
 
     if (!description || !clientAddress) {
       return res.status(400).json({ error: "description and clientAddress are required" });
@@ -38,6 +38,7 @@ router.post("/", async (req, res) => {
 
     const job = await prisma.job.create({
       data: {
+        title: title || null,
         description,
         clientAddress,
         freelancerAddress: freelancerAddress || null,
@@ -45,6 +46,7 @@ router.post("/", async (req, res) => {
         requirementsHash,
         testSuiteHash,
         testSuiteJson: testSuite || null,
+        paymentAmountINR: paymentAmountINR ? String(paymentAmountINR) : null,
         state: "CREATED",
         repoUrl: null,
         submissionHash: null,

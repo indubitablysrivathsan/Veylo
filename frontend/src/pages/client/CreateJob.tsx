@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import GlassCard from '@/components/shared/GlassCard'
 import { checkAmbiguity, generateTests, createJob } from '@/lib/api'
-import { useWallet } from '@/hooks/useWallet'
-import { cn, formatEth, formatUsd } from '@/lib/utils'
+import { cn, formatINR } from '@/lib/utils'
 import type { AmbiguityResult, TestSuite, TestCase } from '@/types'
 import {
     ClipboardCheck, ScanSearch, FlaskConical, Coins,
@@ -16,7 +15,7 @@ const STEPS = [
     { label: 'Requirements', icon: ClipboardCheck },
     { label: 'Ambiguity Review', icon: ScanSearch },
     { label: 'Test Suite', icon: FlaskConical },
-    { label: 'Fund Escrow', icon: Coins },
+    { label: 'Confirm Payment', icon: Coins },
 ]
 
 export default function CreateJob() {
@@ -24,14 +23,14 @@ export default function CreateJob() {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [deadline, setDeadline] = useState('')
-    const [escrow, setEscrow] = useState('0.50')
+    const [escrow, setEscrow] = useState('25000')
     const [loading, setLoading] = useState(false)
     const [ambiguity, setAmbiguity] = useState<AmbiguityResult | null>(null)
     const [testSuite, setTestSuite] = useState<TestSuite | null>(null)
     const [reqHash, setReqHash] = useState('')
     const [testHash, setTestHash] = useState('')
     const navigate = useNavigate()
-    const { state: wallet } = useWallet()
+
 
     const analyzeRequirements = async () => {
         setLoading(true)
@@ -59,7 +58,7 @@ export default function CreateJob() {
         setTestHash(th)
 
         setLoading(true)
-        await createJob({ description, clientAddress: wallet.address || '', deadline: deadline || undefined, testSuite: testSuite || undefined })
+        await createJob({ title, description, clientAddress: 'platform', deadline: deadline || undefined, testSuite: testSuite || undefined, paymentAmountINR: parseFloat(escrow) || undefined })
         setLoading(false)
         setStep(3)
     }
@@ -137,15 +136,15 @@ export default function CreateJob() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-text-secondary mb-1.5 font-body">Escrow (ETH)</label>
+                                    <label className="block text-xs text-text-secondary mb-1.5 font-body">Payment (₹)</label>
                                     <input
                                         type="number"
-                                        step="0.01"
+                                        step="1"
                                         value={escrow}
                                         onChange={e => setEscrow(e.target.value)}
+                                        placeholder="e.g. 25000"
                                         className="w-full px-4 py-2.5 rounded-lg bg-white/[0.035] border border-white/[0.07] text-text-primary text-sm font-mono focus:outline-none focus:border-violet-500/40 transition-colors"
                                     />
-                                    <p className="text-[11px] text-text-muted mt-1 font-body">{formatUsd(escrow)}</p>
                                 </div>
                             </div>
                             <button
@@ -267,8 +266,8 @@ export default function CreateJob() {
                                 </div>
                                 <div className="gradient-divider" />
                                 <div className="flex items-center justify-between text-sm">
-                                    <span className="text-text-muted font-body">Escrow Amount</span>
-                                    <span className="font-mono font-semibold text-text-primary">{formatEth(escrow)}</span>
+                                    <span className="text-text-muted font-body">Payment Amount</span>
+                                    <span className="font-mono font-semibold text-text-primary">{formatINR(escrow)}</span>
                                 </div>
                             </div>
                             <button

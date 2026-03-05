@@ -21,7 +21,7 @@ const differentiators = [
     {
         icon: ShieldCheck,
         title: 'Deterministic Outcome',
-        text: 'Validation runs across structure, execution, static analysis, and AI reasoning. The score is a weighted formula, not a judgment.',
+        text: 'Validation runs across execution, repo viability, static analysis, and AI reasoning. The score is a weighted formula, not a judgment.',
     },
     {
         icon: Link2,
@@ -37,7 +37,7 @@ const differentiators = [
 
 const layers = [
     { label: 'Execution', weight: SCORE_WEIGHTS.execution, color: 'bg-emerald-500' },
-    { label: 'Structure', weight: SCORE_WEIGHTS.structure, color: 'bg-violet-500' },
+    { label: 'Repo Viability', weight: SCORE_WEIGHTS.repoViability, color: 'bg-violet-500' },
     { label: 'Lint', weight: SCORE_WEIGHTS.lint, color: 'bg-amber-500' },
     { label: 'Semantic', weight: SCORE_WEIGHTS.semantic, color: 'bg-blue-500' },
 ]
@@ -70,7 +70,6 @@ export default function Landing() {
                         Start as Freelancer
                     </Link>
                 </div>
-                <p className="mt-5 font-mono text-xs text-text-muted">0x7f3a8b2c...e9f0b2c1</p>
             </section>
 
             {/* How it Works */}
@@ -127,7 +126,7 @@ export default function Landing() {
                 <ScrollReveal delay={0.15}>
                     <div className="glass p-7">
                         <p className="font-mono text-sm text-text-secondary mb-6 text-center leading-relaxed">
-                            Final = 0.40 &times; Execution + 0.20 &times; Structure + 0.20 &times; Lint + 0.20 &times; Semantic
+                            Final = 0.50 &times; Execution + 0.10 &times; Repo Viability + 0.20 &times; Lint + 0.20 &times; Semantic
                         </p>
                         <div className="space-y-3 mb-6">
                             {layers.map((l, i) => (

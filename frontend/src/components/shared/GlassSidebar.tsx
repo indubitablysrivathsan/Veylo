@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { useWallet } from '@/hooks/useWallet'
+import { useAuth } from '@/hooks/useAuth'
 import { useApp } from '@/context/AppContext'
-import { cn, formatAddress } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import {
-    LayoutDashboard, PlusCircle, FolderOpen, Shield, Settings,
-    Search, FolderCode, ChevronLeft, LogOut,
+    LayoutDashboard, PlusCircle, FolderOpen, Shield,
+    Search, FolderCode, ChevronLeft, LogOut, User,
 } from 'lucide-react'
 
 const clientNav = [
@@ -24,7 +24,7 @@ const freelancerNav = [
 
 export default function GlassSidebar() {
     const [collapsed, setCollapsed] = useState(false)
-    const { state: wallet, disconnect } = useWallet()
+    const { state: authState, logout } = useAuth()
     const { state: appState } = useApp()
     const navigate = useNavigate()
     const location = useLocation()
@@ -32,6 +32,11 @@ export default function GlassSidebar() {
     const isFreelancer = appState.role === 'freelancer' || location.pathname.startsWith('/freelancer')
     const navItems = isFreelancer ? freelancerNav : clientNav
     const roleLabel = isFreelancer ? 'Freelancer' : 'Client'
+
+    const handleLogout = async () => {
+        await logout()
+        navigate('/auth')
+    }
 
     return (
         <aside
@@ -70,23 +75,31 @@ export default function GlassSidebar() {
                 ))}
             </nav>
 
-            {/* Bottom section */}
+            {/* Bottom section — User info */}
             <div className="p-4 border-t border-white/[0.06] space-y-3">
-                {wallet.address && !collapsed && (
+                {authState.user && !collapsed && (
                     <div className="space-y-1.5">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-violet-500/15 text-violet-400 border border-violet-500/20 uppercase tracking-wider font-body">
                             {roleLabel}
                         </span>
-                        <p className="font-mono text-xs text-text-muted truncate">{formatAddress(wallet.address)}</p>
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center">
+                                <User className="w-3 h-3 text-violet-400" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-xs text-text-primary font-body truncate">{authState.user.name || authState.user.email}</p>
+                                <p className="text-[10px] text-text-muted font-body truncate">{authState.user.email}</p>
+                            </div>
+                        </div>
                     </div>
                 )}
                 {!collapsed && (
                     <button
-                        onClick={() => { disconnect(); navigate('/auth') }}
+                        onClick={handleLogout}
                         className="flex items-center gap-2 text-xs text-text-muted hover:text-text-secondary transition-colors font-body"
                     >
                         <LogOut className="w-3.5 h-3.5" />
-                        Disconnect
+                        Sign Out
                     </button>
                 )}
                 <button

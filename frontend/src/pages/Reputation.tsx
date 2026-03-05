@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import GlassCard from '@/components/shared/GlassCard'
 import GlassNavbar from '@/components/shared/GlassNavbar'
 import AmbientBackground from '@/components/shared/AmbientBackground'
-import WalletAddress from '@/components/shared/WalletAddress'
+
 import CountUp from '@/components/ui/CountUp'
 import ScrollReveal from '@/components/ui/ScrollReveal'
 import { getReputation } from '@/lib/api'
@@ -44,7 +44,7 @@ export default function Reputation() {
                         <Shield className="w-7 h-7 text-violet-400" />
                     </div>
                     <div className="mb-2">
-                        <WalletAddress address={profile.address} truncate={false} className="justify-center text-base" />
+                        <span className="font-mono text-sm text-text-secondary">{profile.address}</span>
                     </div>
                     <p className="text-sm text-text-muted font-body">Veylo Member</p>
                 </div>

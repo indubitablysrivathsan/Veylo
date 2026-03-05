@@ -1,4 +1,4 @@
-import type { Job, ValidationReport, AmbiguityResult, TestSuite, ReputationProfile } from '@/types'
+import type { Job, User, ValidationReport, AmbiguityResult, TestSuite, ReputationProfile } from '@/types'
 import { API_BASE_URL } from '@/lib/constants'
 import {
     mockJobs, mockAmbiguityResult, mockTestSuites,
@@ -9,6 +9,7 @@ import {
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     const res = await fetch(`${API_BASE_URL}${path}`, {
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         ...options,
     })
     if (!res.ok) {
@@ -26,7 +27,7 @@ function normalizeJob(raw: Record<string, unknown>): Job {
         testSuiteJson: (raw.testSuiteJson as TestSuite | null) ?? null,
         validationReport: (raw.validationReport as ValidationReport | null) ?? null,
         outcome: (raw.outcome as string) ?? 'NONE',
-        amountWei: (raw.amountWei as string | null) ?? null,
+        paymentAmountINR: (raw.paymentAmountINR as number | null) ?? (raw.amountWei ? parseFloat(raw.amountWei as string) : null),
         validatedAt: (raw.validatedAt as string | null) ?? null,
         closedAt: (raw.closedAt as string | null) ?? null,
         fundTxHash: (raw.fundTxHash as string | null) ?? null,
@@ -36,10 +37,12 @@ function normalizeJob(raw: Record<string, unknown>): Job {
 
 // ── Jobs ───────────────────────────────────────────
 export async function createJob(data: {
+    title?: string
     description: string
     clientAddress: string
     deadline?: string
     testSuite?: TestSuite
+    paymentAmountINR?: number
 }): Promise<Job> {
     try {
         const raw = await apiFetch<Record<string, unknown>>('/jobs', {
@@ -182,4 +185,38 @@ export async function getReputationBadges(address: string): Promise<string[]> {
         const profile = mockReputationProfiles[address] || Object.values(mockReputationProfiles)[0]
         return profile.badges
     }
+}
+
+// ── Auth API ──────────────────────────────────────────
+export async function authRegister(email: string, password: string, name: string, role: string): Promise<{ token: string; user: User }> {
+    return apiFetch('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, name, role }),
+    })
+}
+
+export async function authLogin(email: string, password: string): Promise<{ token: string; user: User }> {
+    return apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+    })
+}
+
+export async function authLogout(): Promise<void> {
+    try {
+        await apiFetch('/auth/logout', { method: 'POST' })
+    } catch {
+        // Ignore logout errors
+    }
+}
+
+export async function authMe(): Promise<User> {
+    return apiFetch('/auth/me')
+}
+
+export async function authGoogle(profile: { email: string; name: string; googleId: string }): Promise<{ token: string; user: User }> {
+    return apiFetch('/auth/google', {
+        method: 'POST',
+        body: JSON.stringify(profile),
+    })
 }

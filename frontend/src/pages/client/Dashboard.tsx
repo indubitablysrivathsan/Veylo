@@ -8,7 +8,7 @@ import EmptyState from '@/components/shared/EmptyState'
 import AnimatedList from '@/components/ui/AnimatedList'
 import CountUp from '@/components/ui/CountUp'
 import { getJobs } from '@/lib/api'
-import { formatEth, formatRelativeTime } from '@/lib/utils'
+import { formatRelativeTime } from '@/lib/utils'
 import { mockActivityItems } from '@/lib/mockData'
 import type { Job } from '@/types'
 import { PlusCircle, Briefcase, Coins, BarChart3, Shield, FolderOpen } from 'lucide-react'
@@ -23,12 +23,12 @@ export default function ClientDashboard() {
     useEffect(() => { getJobs().then(setJobs) }, [])
 
     const activeJobs = jobs.filter(j => j.state !== 'CLOSED')
-    const totalEscrowed = 4.0
+    const totalEscrowed = 170000
     const avgScore = jobs.filter(j => j.validationReport).reduce((acc, j) => acc + (j.validationReport?.overallScore || 0), 0) / Math.max(jobs.filter(j => j.validationReport).length, 1)
 
     const stats = [
         { icon: Briefcase, label: 'Active Jobs', value: activeJobs.length, suffix: '' },
-        { icon: Coins, label: 'Total Escrowed', value: totalEscrowed, suffix: ' ETH', decimals: 2 },
+        { icon: Coins, label: 'Total Committed', value: totalEscrowed, prefix: '₹', decimals: 0 },
         { icon: BarChart3, label: 'Avg Score', value: avgScore, suffix: '%', decimals: 1 },
         { icon: Shield, label: 'Reputation', value: 79, suffix: '' },
     ]
@@ -106,8 +106,8 @@ export default function ClientDashboard() {
                             {mockActivityItems.map((a) => (
                                 <div key={a.id} className="flex items-start gap-2.5 py-2.5 border-b border-white/[0.04] last:border-0">
                                     <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${a.type === 'success' ? 'bg-emerald-400' :
-                                            a.type === 'error' ? 'bg-red-400' :
-                                                a.type === 'warning' ? 'bg-amber-400' : 'bg-violet-400'
+                                        a.type === 'error' ? 'bg-red-400' :
+                                            a.type === 'warning' ? 'bg-amber-400' : 'bg-violet-400'
                                         }`} />
                                     <div className="min-w-0">
                                         <p className="text-xs text-text-secondary font-body leading-relaxed">{a.message}</p>

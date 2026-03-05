@@ -1,8 +1,9 @@
 import { Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Outlet, useLocation, Navigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AppProvider } from '@/context/AppContext'
-import { WalletProvider } from '@/context/WalletContext'
+import { AuthProvider } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import AmbientBackground from '@/components/shared/AmbientBackground'
 import GlassSidebar from '@/components/shared/GlassSidebar'
 
@@ -17,6 +18,25 @@ const FreelancerDashboard = lazy(() => import('@/pages/freelancer/Dashboard'))
 const Marketplace = lazy(() => import('@/pages/freelancer/Marketplace'))
 const FreelancerJobDetail = lazy(() => import('@/pages/freelancer/JobDetail'))
 const Reputation = lazy(() => import('@/pages/Reputation'))
+
+/** Protected route — redirects to /auth if not logged in */
+function ProtectedRoute() {
+  const { state } = useAuth()
+
+  if (state.isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 spinner" />
+      </div>
+    )
+  }
+
+  if (!state.isAuthenticated) {
+    return <Navigate to="/auth" replace />
+  }
+
+  return <Outlet />
+}
 
 function DashboardLayout() {
   const location = useLocation()
@@ -51,7 +71,7 @@ const loadingFallback = (
 export default function App() {
   return (
     <BrowserRouter>
-      <WalletProvider>
+      <AuthProvider>
         <AppProvider>
           <Suspense fallback={loadingFallback}>
             <Routes>
@@ -60,27 +80,31 @@ export default function App() {
               <Route path="/auth" element={<Auth />} />
               <Route path="/reputation/:address" element={<Reputation />} />
 
-              {/* Client */}
-              <Route element={<DashboardLayout />}>
-                <Route path="/client" element={<ClientDashboard />} />
-                <Route path="/client/create" element={<CreateJob />} />
-                <Route path="/client/job/:id" element={<ClientJobDetail />} />
-                <Route path="/client/job/:id/validation" element={<ValidationView />} />
-                <Route path="/client/reputation" element={<Reputation />} />
+              {/* Protected — Client */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<DashboardLayout />}>
+                  <Route path="/client" element={<ClientDashboard />} />
+                  <Route path="/client/create" element={<CreateJob />} />
+                  <Route path="/client/job/:id" element={<ClientJobDetail />} />
+                  <Route path="/client/job/:id/validation" element={<ValidationView />} />
+                  <Route path="/client/reputation" element={<Reputation />} />
+                </Route>
               </Route>
 
-              {/* Freelancer */}
-              <Route element={<DashboardLayout />}>
-                <Route path="/freelancer" element={<FreelancerDashboard />} />
-                <Route path="/freelancer/marketplace" element={<Marketplace />} />
-                <Route path="/freelancer/job/:id" element={<FreelancerJobDetail />} />
-                <Route path="/freelancer/job/:id/validation" element={<ValidationView />} />
-                <Route path="/freelancer/reputation" element={<Reputation />} />
+              {/* Protected — Freelancer */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<DashboardLayout />}>
+                  <Route path="/freelancer" element={<FreelancerDashboard />} />
+                  <Route path="/freelancer/marketplace" element={<Marketplace />} />
+                  <Route path="/freelancer/job/:id" element={<FreelancerJobDetail />} />
+                  <Route path="/freelancer/job/:id/validation" element={<ValidationView />} />
+                  <Route path="/freelancer/reputation" element={<Reputation />} />
+                </Route>
               </Route>
             </Routes>
           </Suspense>
         </AppProvider>
-      </WalletProvider>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
