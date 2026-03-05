@@ -168,7 +168,7 @@ export default function CreateJob() {
                                 </div>
                             ) : (
                                 <div className="space-y-3">
-                                    {ambiguity.warnings.map((w, i) => (
+                                    {ambiguity.warnings?.map((w, i) => (
                                         <div key={i} className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.06] space-y-2">
                                             <div className="flex items-start gap-2">
                                                 <AlertTriangle className={cn('w-4 h-4 mt-0.5 flex-shrink-0', w.severity === 'high' ? 'text-red-400' : w.severity === 'medium' ? 'text-amber-400' : 'text-text-muted')} />

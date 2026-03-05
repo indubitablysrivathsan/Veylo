@@ -1,15 +1,10 @@
 /**
  * services/reportService.js
- * ──────────────────────────
- * Handles storage and retrieval of validation reports.
- *
- * Currently uses in-memory + JSON file persistence.
- * Swap for PostgreSQL/SQLite in production.
  */
 
 const fs = require("fs");
 const path = require("path");
-const prisma = require("../db/prisma/prismaClient");
+const prisma = require("../db/prismaClient");
 
 const REPORTS_DIR = path.join(__dirname, "..", "..", "data", "reports");
 
@@ -22,15 +17,11 @@ if (!fs.existsSync(REPORTS_DIR)) {
 const reportCache = new Map();
 
 /**
- * Store a validation report.
- *
- * @param {number} jobId
- * @param {object} report
+ * Store validation report
  */
-
 async function storeReport(jobId, report) {
 
-  return prisma.validationReport.upsert({
+  await prisma.validationReport.upsert({
     where: { jobId },
     update: {
       overallScore: report.overallScore,
@@ -45,20 +36,26 @@ async function storeReport(jobId, report) {
     }
   });
 
+  reportCache.set(jobId, report);
+
+  const filePath = path.join(REPORTS_DIR, `report-${jobId}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(report, null, 2));
 }
 
+/**
+ * Get validation report
+ */
 async function getReport(jobId) {
 
-  return prisma.validationReport.findUnique({
+  const dbReport = await prisma.validationReport.findUnique({
     where: { jobId }
   });
 
-}
+  if (dbReport) return dbReport.reportJson;
 
-module.exports = { storeReport, getReport };
-
-  // Try loading from file
+  // fallback to file
   const filePath = path.join(REPORTS_DIR, `report-${jobId}.json`);
+
   if (fs.existsSync(filePath)) {
     const report = JSON.parse(fs.readFileSync(filePath, "utf-8"));
     reportCache.set(jobId, report);
@@ -66,22 +63,25 @@ module.exports = { storeReport, getReport };
   }
 
   return null;
-
+}
 
 /**
- * List all stored reports (summary view).
- *
- * @returns {object[]}
+ * List reports
  */
 async function listReports() {
+
   const files = fs.readdirSync(REPORTS_DIR).filter((f) => f.endsWith(".json"));
+
   return files.map((f) => {
-    const report = JSON.parse(fs.readFileSync(path.join(REPORTS_DIR, f), "utf-8"));
+    const report = JSON.parse(
+      fs.readFileSync(path.join(REPORTS_DIR, f), "utf-8")
+    );
+
     return {
       jobId: parseInt(f.match(/report-(\d+)/)?.[1] || 0),
       overallScore: report.overallScore,
       verdict: report.verdict,
-      timestamp: report.metadata?.timestamp,
+      timestamp: report.metadata?.timestamp
     };
   });
 }

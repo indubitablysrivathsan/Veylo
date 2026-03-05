@@ -17,34 +17,45 @@ const prisma = require("../db/prismaClient");
  * Get the reputation summary for a wallet address.
  */
 router.get("/:address", async (req, res) => {
+  try {
 
-  const { address } = req.params;
-  const key = address.toLowerCase();
+    const { address } = req.params;
+    const key = address.toLowerCase();
 
-  const rep = await prisma.reputation.findUnique({
-    where: { address: key }
-  });
-
-  const badges = await prisma.badge.findMany({
-    where: { address: key }
-  });
-
-  if (!rep) {
-    return res.json({
-      address,
-      totalJobs: 0,
-      averageScore: 0,
-      successfulJobs: 0,
-      disputedJobs: 0,
-      failedJobs: 0,
-      badges: [],
+    const rep = await prisma.reputation.findUnique({
+      where: { address: key }
     });
-  }
 
-  res.json({
-    ...rep,
-    badges: badges.map(b => b.badgeName)
-  });
+    const badges = await prisma.badge.findMany({
+      where: { address: key }
+    });
+
+    if (!rep) {
+      return res.json({
+        address,
+        totalJobs: 0,
+        averageScore: 0,
+        successfulJobs: 0,
+        disputedJobs: 0,
+        failedJobs: 0,
+        badges: [],
+      });
+    }
+
+    res.json({
+      ...rep,
+      badges: badges.map(b => b.badgeName)
+    });
+
+  } catch (error) {
+
+    console.error("[Reputation] Fetch error:", error);
+
+    res.status(500).json({
+      error: "Failed to fetch reputation"
+    });
+
+  }
 });
 
 
@@ -133,16 +144,27 @@ async function updateReputation(address, score) {
  */
 router.get("/:address/badges", async (req, res) => {
 
-  const key = req.params.address.toLowerCase();
+  try{
 
-  const badges = await prisma.badge.findMany({
-    where: { address: key }
-  });
+    const key = req.params.address.toLowerCase();
 
-  res.json({
-    badges: badges.map(b => b.badgeName)
-  });
+    const badges = await prisma.badge.findMany({
+      where: { address: key }
+    });
 
+    res.json({
+      badges: badges.map(b => b.badgeName)
+    });
+
+  } catch (error) {
+
+    console.error("[Reputation] Fetch error:", error);
+
+    res.status(500).json({
+      error: "Failed to fetch reputation"
+    });
+
+  }
 });
 
 

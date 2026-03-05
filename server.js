@@ -9,7 +9,7 @@
  *   node server.js
  *   PORT=4000 node server.js
  */
-
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const escrowService = require("./backend/services/escrowService");
@@ -17,6 +17,7 @@ const modelClient = require("./validator/ai/modelClient");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
 
 // ─── Middleware ────────────────────────────────────────────
 app.use(cors({

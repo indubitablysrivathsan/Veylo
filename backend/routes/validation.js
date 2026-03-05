@@ -120,7 +120,7 @@ router.get("/:jobId", async (req, res) => {
  */
 router.post("/generate-tests", async (req, res) => {
   try {
-    const { description } = req.body;
+    const description = req.body;
 
     if (!description)
       return res.status(400).json({ error: "description is required" });
@@ -145,7 +145,7 @@ router.post("/generate-tests", async (req, res) => {
 router.post("/check-ambiguity", async (req, res) => {
   try {
 
-    const { description } = req.body;
+    const description = req.body;
 
     if (!description)
       return res.status(400).json({ error: "description is required" });
