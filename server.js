@@ -11,6 +11,7 @@
  */
 
 const express = require("express");
+const cors = require("cors");
 const escrowService = require("./backend/services/escrowService");
 const modelClient = require("./validator/ai/modelClient");
 
@@ -18,6 +19,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ─── Middleware ────────────────────────────────────────────
+app.use(cors({
+  origin: ["http://localhost:5173", "http://localhost:3000"],
+  credentials: true,
+}));
 app.use(express.json());
 
 // Request logging
@@ -27,12 +32,12 @@ app.use((req, res, next) => {
 });
 
 // ─── Routes ───────────────────────────────────────────────
-app.use("/jobs", require("./backend/routes/jobs"));
-app.use("/validation", require("./backend/routes/validation"));
-app.use("/reputation", require("./backend/routes/reputation"));
+app.use("/api/jobs", require("./backend/routes/jobs"));
+app.use("/api/validation", require("./backend/routes/validation"));
+app.use("/api/reputation", require("./backend/routes/reputation"));
 
 // ─── Health Check ─────────────────────────────────────────
-app.get("/health", async (req, res) => {
+app.get("/api/health", async (req, res) => {
   const ollamaHealth = await modelClient.healthCheck();
   res.json({
     status: "ok",
@@ -52,16 +57,17 @@ app.get("/", (req, res) => {
     name: "Blockchain Escrow Platform",
     version: "0.1.0",
     endpoints: {
-      "POST /jobs":                    "Create a new job",
-      "GET  /jobs":                    "List all jobs",
-      "GET  /jobs/:id":                "Get job details",
-      "POST /jobs/:id/submit":         "Submit work for a job",
-      "POST /validation/run":          "Trigger validation pipeline",
-      "GET  /validation/:jobId":       "Get validation report",
-      "POST /validation/generate-tests": "Generate test suite from description",
-      "POST /validation/check-ambiguity": "Check spec for ambiguities",
-      "GET  /reputation/:address":     "Get reputation for address",
-      "GET  /health":                  "System health check",
+      "POST /api/jobs":                    "Create a new job",
+      "GET  /api/jobs":                    "List all jobs",
+      "GET  /api/jobs/:id":                "Get job details",
+      "PUT  /api/jobs/:id/accept":          "Accept a job (freelancer)",
+      "POST /api/jobs/:id/submit":         "Submit work for a job",
+      "POST /api/validation/run":          "Trigger validation pipeline",
+      "GET  /api/validation/:jobId":       "Get validation report",
+      "POST /api/validation/generate-tests": "Generate test suite from description",
+      "POST /api/validation/check-ambiguity": "Check spec for ambiguities",
+      "GET  /api/reputation/:address":     "Get reputation for address",
+      "GET  /api/health":                  "System health check",
     },
   });
 });

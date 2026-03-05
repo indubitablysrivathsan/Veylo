@@ -71,13 +71,20 @@ export interface Job {
     deadline: string | null
     requirementsHash: string
     testSuiteHash: string | null
+    testSuiteJson: TestSuite | null
     testSuite: TestSuite | null
     state: JobState
+    outcome: string
+    amountWei: string | null
     repoUrl: string | null
     submissionHash: string | null
     validationReport: ValidationReport | null
     createTxHash: string | null
+    fundTxHash: string | null
+    validateTxHash: string | null
     submittedAt: string | null
+    validatedAt: string | null
+    closedAt: string | null
     createdAt: string
 }
 

@@ -128,6 +128,46 @@ router.get("/:id", async (req, res) => {
 
 
 /**
+ * PUT /jobs/:id/accept
+ * Freelancer accepts a job. Sets freelancerAddress on the job.
+ */
+router.put("/:id/accept", async (req, res) => {
+  try {
+    const job = await prisma.job.findUnique({
+      where: { id: parseInt(req.params.id) },
+    });
+
+    if (!job) return res.status(404).json({ error: "Job not found" });
+
+    if (job.state !== "CREATED" && job.state !== "FUNDED") {
+      return res.status(400).json({ error: `Cannot accept job in state: ${job.state}` });
+    }
+
+    if (job.freelancerAddress) {
+      return res.status(400).json({ error: "Job already accepted by another freelancer" });
+    }
+
+    const { freelancerAddress } = req.body;
+
+    if (!freelancerAddress) {
+      return res.status(400).json({ error: "freelancerAddress is required" });
+    }
+
+    const updatedJob = await prisma.job.update({
+      where: { id: job.id },
+      data: { freelancerAddress },
+    });
+
+    res.json(updatedJob);
+
+  } catch (error) {
+    console.error("[Jobs] Accept error:", error);
+    res.status(500).json({ error: "Failed to accept job" });
+  }
+});
+
+
+/**
  * POST /jobs/:id/submit
  * Freelancer submits their completed work.
  */
