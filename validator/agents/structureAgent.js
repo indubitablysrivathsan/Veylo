@@ -17,64 +17,60 @@ const path = require("path");
  * Validate repository structure against requirements.
  *
  * @param {string} repoPath - Absolute path to cloned repo
- * @param {object} requirements - { required_files: string[], required_dirs?: string[] }
+ * @param {object} testSuite - { required_files: string[], required_dirs?: string[] }
  * @returns {{ structureScore: number, details: object[] }}
  */
-async function validateStructure(repoPath, requirements) {
-  const results = [];
-  const requiredFiles = requirements.required_files || [];
-  const requiredDirs = requirements.required_dirs || [];
 
-  let passed = 0;
-  const total = requiredFiles.length + requiredDirs.length;
+function listRepoFiles(repoPath, depth = 0) {
+  if (depth > 4) return [];
 
-  // Check required files
-  for (const file of requiredFiles) {
-    const fullPath = path.join(repoPath, file);
-    const exists = fs.existsSync(fullPath);
-    results.push({
-      type: "file",
-      path: file,
-      exists,
-      status: exists ? "PASS" : "FAIL",
-    });
-    if (exists) passed++;
+  let files = [];
+
+  for (const entry of fs.readdirSync(repoPath, { withFileTypes: true })) {
+    if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+
+    const full = path.join(repoPath, entry.name);
+
+    if (entry.isDirectory()) {
+      files = files.concat(listRepoFiles(full, depth + 1));
+    } else {
+      files.push(entry.name);
+    }
   }
 
-  // Check required directories
-  for (const dir of requiredDirs) {
-    const fullPath = path.join(repoPath, dir);
-    const exists = fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory();
-    results.push({
-      type: "directory",
-      path: dir,
-      exists,
-      status: exists ? "PASS" : "FAIL",
-    });
-    if (exists) passed++;
-  }
+  return files;
+}
 
-  // Check for README (bonus — always expected)
-  const hasReadme = ["README.md", "README.txt", "README"].some((f) =>
-    fs.existsSync(path.join(repoPath, f))
-  );
-  if (!requiredFiles.some((f) => f.toLowerCase().startsWith("readme"))) {
-    results.push({
-      type: "file",
-      path: "README.md",
-      exists: hasReadme,
-      status: hasReadme ? "PASS" : "WARN",
-      note: "README recommended but not strictly required",
-    });
-  }
+async function validateStructure(repoPath) {
+  const files = listRepoFiles(repoPath);
 
-  const structureScore = total > 0 ? Math.round((passed / total) * 100) : 100;
+  const checks = {
+    hasSourceCode: files.some(f => /\.(py|js|ts|java|cpp|go)$/.test(f)),
+    hasDependencyFile: files.some(f =>
+      ["requirements.txt","pyproject.toml","package.json","Pipfile","setup.py"].includes(f)
+    ),
+    hasEntrypoint: files.some(f =>
+      ["main.py","app.py","index.js","server.js"].includes(f)
+    ),
+    hasTests: files.some(f =>
+      f.includes("test") || f.includes("__tests__")
+    ),
+    hasReadme: files.some(f =>
+      f.toLowerCase().startsWith("readme")
+    )
+  };
+  
+  let score = 0;
+
+  if (checks.hasSourceCode) score += 40;
+  if (checks.hasDependencyFile) score += 20;
+  if (checks.hasEntrypoint) score += 15;
+  if (checks.hasTests) score += 15;
+  if (checks.hasReadme) score += 10;
 
   return {
-    structureScore,
-    passed,
-    total,
-    details: results,
+    structureScore: score,
+    checks
   };
 }
 

@@ -7,21 +7,48 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  name          String?
+  role          String   @default("client")
+
+  passwordHash  String?
+
+  oauthProvider String?
+  oauthId       String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 model Job {
   id                 Int      @id @default(autoincrement())
   title              String?
   description        String
   clientAddress      String
   freelancerAddress  String?
+
+  techStack          String?
+  expectedDeliverable String?
+
   requirementsHash   String
   testSuiteHash      String?
   testSuiteJson      Json?
+
   state              String   @default("CREATED")
   outcome            String   @default("NONE")
-  paymentAmountINR    String?
+
+  paymentAmountINR   String?
+
   repoUrl            String?
   submissionHash     String?
+
+  commitHash         String?      // ADD
+  submissionNotes    String?      // ADD
+
   deadline           DateTime?
+
   createdAt          DateTime @default(now())
   submittedAt        DateTime?
   validatedAt        DateTime?
@@ -36,7 +63,8 @@ model Job {
 
 model ValidationReport {
   id                 Int @id @default(autoincrement())
-  jobId              Int
+
+  jobId              Int @unique
   job                Job @relation(fields: [jobId], references: [id])
 
   overallScore       Int
@@ -52,7 +80,7 @@ model ValidationReport {
 
   semanticReasoning  String?
 
-  reportHash         String
+  reportHash         String?
   reportJson         Json?
 
   createdAt          DateTime @default(now())

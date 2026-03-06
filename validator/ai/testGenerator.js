@@ -29,9 +29,6 @@ ${jobDescription}
 Respond ONLY with valid JSON (no markdown fences, no extra text):
 {
   "language": "python" | "javascript",
-  "required_files": ["file1.py", "file2.py"],
-  "required_dirs": ["src", "tests"],
-  "required_functions": ["function_name_1", "function_name_2"],
   "test_cases": [
     { "input": "...", "expected_output": "...", "description": "..." }
   ],
@@ -76,11 +73,6 @@ function getDefaultTestSuite(description) {
 
   return {
     language,
-    required_files: isPython
-      ? ["app.py", "requirements.txt"]
-      : ["index.js", "package.json"],
-    required_dirs: [],
-    required_functions: [],
     test_cases: [
       { input: "basic_test", expected_output: "success", description: "Basic functionality test" },
     ],

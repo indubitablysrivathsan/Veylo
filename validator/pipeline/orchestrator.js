@@ -27,6 +27,25 @@ const crypto = require("crypto");
  * @param {object} params.requirements       - Structure requirements
  * @returns {object} Full validation report
  */
+
+function listRepoFiles(repoPath) {
+  const files = [];
+
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+
+      const full = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) walk(full);
+      else files.push(full.replace(repoPath + path.sep, ""));
+    }
+  }
+
+  walk(repoPath);
+  return files;
+}
+
 async function runValidationPipeline({ repoPath, taskDescription, testSuite, requirements }) {
   const startTime = Date.now();
   const language = detectJobType(repoPath, testSuite);
@@ -36,7 +55,7 @@ async function runValidationPipeline({ repoPath, taskDescription, testSuite, req
 
   // ─── Layer 1: Structure ─────────────────────────────────────────
   console.log("[Orchestrator] Running structure validation...");
-  const structureResult = await validateStructure(repoPath, requirements);
+  const structureResult = await validateStructure(repoPath);
 
   // ─── Layer 2: Execution ─────────────────────────────────────────
   console.log("[Orchestrator] Running sandboxed execution...");
@@ -51,7 +70,7 @@ async function runValidationPipeline({ repoPath, taskDescription, testSuite, req
   const signatures = await extractSignatures(repoPath, language);
   const semanticResult = await analyzeSemantics({
     taskDescription,
-    repoFiles: structureResult.details.map((d) => d.path),
+    repoFiles: listRepoFiles(repoPath),
     testResults: `Passed: ${executionResult.testsPassed}/${executionResult.testsTotal}`,
     functionSignatures: signatures,
   });

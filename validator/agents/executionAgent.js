@@ -44,7 +44,22 @@ function isDockerAvailable() {
  * @param {object} testSuite     - { language, testCommand, testFile? }
  * @returns {{ executionScore: number, testsPassed: number, testsTotal: number, runtimeOutput: string }}
  */
+
+function writeGeneratedTest(repoPath, testSuite) {
+  if (!testSuite.testFile || !testSuite.testCode) return;
+
+  const fullPath = path.join(repoPath, testSuite.testFile);
+  const dir = path.dirname(fullPath);
+
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  fs.writeFileSync(fullPath, testSuite.testCode);
+}
+
 async function executeTests(repoPath, testSuite) {
+  writeGeneratedTest(repoPath, testSuite);
   const language = testSuite.language || "python";
   const testCommand = testSuite.testCommand || getDefaultTestCommand(language);
 
