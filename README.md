@@ -1,8 +1,8 @@
-# Blockchain Escrow with AI Validator
+# Veylo
 
 ## Overview
 
-**Blockchain Escrow with AI Validator** is a decentralized freelance contract verification platform that automates escrow payments using deterministic validation pipelines and blockchain-backed auditability.
+**Veylo** is a **decentralized escrow platform** that bridges the gap between freelance work and guaranteed payment. By combining Blockchain immutability with AI-driven semantic analysis, we’ve turned subjective project milestones into objective, self-executing code. We aren't just automating payments; we’re building the infrastructure for a trustless global labor market.
 
 The platform eliminates subjective dispute resolution by enforcing **objective validation rules** defined before work begins. Freelancers are evaluated based on functional correctness, execution results, and code quality rather than subjective human judgment.
 
@@ -323,7 +323,7 @@ Potential extensions include:
 
 ## Vision
 
-This platform introduces **autonomous freelance contracts**.
+Veylo introduces **autonomous freelance contracts**.
 
 Requirements are defined and locked before work begins.
 Validation is performed through deterministic pipelines rather than human opinion.
