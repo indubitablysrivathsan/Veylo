@@ -1,10 +1,15 @@
 /**
  * executionAgent.js
  * ─────────────────
- * Layer 2 — Test Execution
+ * Layer 2 — Sandboxed Test Execution
  *
  * Runs the AI-generated test suite against the submitted repo.
  * Tries Docker first, falls back to local execution if Docker is unavailable.
+ *
+ * Security hardening:
+ *   --network=none, --memory=512m, --cpus=1, --read-only,
+ *   --pids-limit=64, --security-opt=no-new-privileges, --cap-drop=ALL,
+ *   ulimit nproc=64, ulimit fsize=10MB
  *
  * Returns test pass/fail counts and runtime output.
  */
@@ -18,10 +23,21 @@ try {
   dockerConfig = require("../../config/dockerConfig");
 } catch {
   dockerConfig = {
-    memoryLimit: "256m",
-    cpuLimit: "1.0",
-    timeout: 120,
+    memoryLimit: "512m",
+    cpuLimit: "1",
+    timeout: 30,
     networkMode: "none",
+    pidsLimit: 64,
+    securityOpt: "no-new-privileges",
+    capDrop: "ALL",
+    images: {
+      python: "python:3.11-slim",
+      javascript: "node:18-slim",
+      typescript: "node:18-slim",
+      default: "ubuntu:22.04",
+    },
+    customImage: null,
+    maxOutputBytes: 1024 * 1024,
   };
 }
 
@@ -41,10 +57,9 @@ function isDockerAvailable() {
  * Execute test suite — Docker if available, otherwise local.
  *
  * @param {string} repoPath      - Absolute path to cloned repo on host
- * @param {object} testSuite     - { language, testCommand, testFile? }
+ * @param {object} testSuite     - { language, testCommand, testFile?, testCode?, entryPoint? }
  * @returns {{ executionScore: number, testsPassed: number, testsTotal: number, runtimeOutput: string }}
  */
-
 function writeGeneratedTest(repoPath, testSuite) {
   if (!testSuite.testFile || !testSuite.testCode) return;
 
@@ -64,7 +79,7 @@ async function executeTests(repoPath, testSuite) {
   const testCommand = testSuite.testCommand || getDefaultTestCommand(language);
 
   if (isDockerAvailable()) {
-    console.log("[ExecutionAgent] Running tests in Docker sandbox...");
+    console.log("[ExecutionAgent] Running tests in Docker sandbox (hardened)...");
     return runInDocker(repoPath, testCommand, language);
   } else {
     console.log("[ExecutionAgent] Docker unavailable — running tests locally...");
@@ -73,11 +88,38 @@ async function executeTests(repoPath, testSuite) {
 }
 
 /**
- * Run tests inside a Docker container with security constraints.
+ * Run tests inside a hardened Docker container.
+ *
+ * Security flags:
+ *   --network=none         No internet access
+ *   --memory=512m          RAM limit
+ *   --cpus=1               CPU limit
+ *   --read-only            Immutable root filesystem
+ *   --pids-limit=64        Prevent fork bombs
+ *   --security-opt=...     Prevent privilege escalation
+ *   --cap-drop=ALL         Drop all Linux capabilities
+ *   --ulimit nproc=64      Process limit
+ *   --ulimit fsize=10M     Max file size
  */
 function runInDocker(repoPath, testCommand, language) {
-  const { memoryLimit, cpuLimit, timeout, networkMode } = dockerConfig;
-  const imageName = getDockerImage(language);
+  const {
+    memoryLimit = "512m",
+    cpuLimit = "1",
+    timeout = 30,
+    networkMode = "none",
+    pidsLimit = 64,
+    securityOpt = "no-new-privileges",
+    capDrop = "ALL",
+    images = {},
+    customImage,
+    maxOutputBytes = 1024 * 1024,
+  } = dockerConfig;
+
+  // Prefer custom sandbox image, fall back to language-specific image
+  const imageName = customImage || images[language] || images.default || getDockerImage(language);
+
+  // Sanitize repoPath for volume mount (escape spaces)
+  const safeRepoPath = repoPath.replace(/\\/g, "/");
 
   const dockerCmd = [
     "docker run --rm",
@@ -85,8 +127,13 @@ function runInDocker(repoPath, testCommand, language) {
     `--memory=${memoryLimit}`,
     `--cpus=${cpuLimit}`,
     "--read-only",
-    "--tmpfs /tmp:rw,noexec,nosuid,size=100m",
-    `-v ${repoPath}:/workspace:ro`,
+    `--pids-limit=${pidsLimit}`,
+    `--security-opt=${securityOpt}`,
+    `--cap-drop=${capDrop}`,
+    "--ulimit nproc=64:64",
+    "--ulimit fsize=10485760:10485760",
+    '--tmpfs /tmp:rw,noexec,nosuid,size=100m',
+    `-v "${safeRepoPath}":/workspace:ro`,
     `-w /workspace`,
     imageName,
     `sh -c "${testCommand}"`,
@@ -95,20 +142,26 @@ function runInDocker(repoPath, testCommand, language) {
   return new Promise((resolve) => {
     const timeoutMs = timeout * 1000;
 
-    exec(dockerCmd, { timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
-      const output = stdout + "\n" + stderr;
+    const child = exec(dockerCmd, { timeout: timeoutMs, maxBuffer: maxOutputBytes }, (error, stdout, stderr) => {
+      // Atomic output capture — combine after both streams complete
+      const output = (stdout || "") + "\n" + (stderr || "");
       const { passed, total } = parseTestOutput(output, language);
       const executionScore = total > 0 ? Math.round((passed / total) * 100) : 0;
 
       resolve({
         executionScore,
         testsPassed: passed,
-        testsTotal: total,
+        testsTotal: Math.max(total, 1),
         runtimeOutput: output.slice(0, 5000),
         timedOut: error?.killed || false,
         exitCode: error?.code || 0,
       });
     });
+
+    // Safety: force-kill if child hangs past timeout
+    setTimeout(() => {
+      try { child.kill("SIGKILL"); } catch { }
+    }, timeoutMs + 5000);
   });
 }
 
@@ -137,11 +190,11 @@ function runLocally(repoPath, testCommand, language) {
       : "npm install --silent 2>/dev/null || true";
 
     const fullCmd = `${installCmd} && ${testCommand}`;
-    const timeoutMs = 120000; // 2 minutes
+    const timeoutMs = (dockerConfig.timeout || 30) * 1000;
 
     exec(
       fullCmd,
-      { cwd: repoPath, timeout: timeoutMs, maxBuffer: 1024 * 1024, shell: true },
+      { cwd: repoPath, timeout: timeoutMs, maxBuffer: dockerConfig.maxOutputBytes || 1024 * 1024, shell: true },
       (error, stdout, stderr) => {
         const output = (stdout || "") + "\n" + (stderr || "");
         const { passed, total } = parseTestOutput(output, language);
@@ -194,7 +247,7 @@ function getAllFiles(dir, depth = 0) {
   const files = [];
   try {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name === "node_modules" || entry.name === ".git") continue;
+      if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "__pycache__") continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         files.push(...getAllFiles(full, depth + 1));
@@ -210,24 +263,29 @@ function getAllFiles(dir, depth = 0) {
 
 /**
  * Parse test runner output to extract pass/fail counts.
- * Supports pytest and jest/mocha style output.
+ * Supports pytest, jest, mocha, and tap style output.
  */
 function parseTestOutput(output, language) {
   let passed = 0;
   let total = 0;
 
   if (language === "python") {
+    // pytest: "5 passed, 2 failed"
     const pytestMatch = output.match(/(\d+) passed/);
     const failedMatch = output.match(/(\d+) failed/);
+    const errorMatch = output.match(/(\d+) error/);
     passed = pytestMatch ? parseInt(pytestMatch[1]) : 0;
     const failed = failedMatch ? parseInt(failedMatch[1]) : 0;
-    total = passed + failed;
+    const errors = errorMatch ? parseInt(errorMatch[1]) : 0;
+    total = passed + failed + errors;
   } else if (language === "javascript" || language === "typescript") {
+    // Jest: "Tests: 3 passed, 5 total"
     const jestMatch = output.match(/Tests:\s+(\d+) passed.*?(\d+) total/);
     if (jestMatch) {
       passed = parseInt(jestMatch[1]);
       total = parseInt(jestMatch[2]);
     } else {
+      // Mocha: "5 passing" / "2 failing"
       const passMatch = output.match(/(\d+) passing/);
       const failMatch = output.match(/(\d+) failing/);
       passed = passMatch ? parseInt(passMatch[1]) : 0;

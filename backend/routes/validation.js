@@ -3,11 +3,15 @@
  * ─────────────────────
  * REST API endpoints for the validation pipeline.
  *
- * POST /validation/run              — Trigger validation for a job
+ * POST /validation/run              — Trigger validation for a job (supports commitHash)
  * GET  /validation/report/:jobId    — Get validation report
  * GET  /validation/:jobId           — Get validation report (alias)
  * POST /validation/generate-tests   — Generate test suite from description
  * POST /validation/check-ambiguity  — Check spec for ambiguities
+ *
+ * State Machine:
+ *   WORK_SUBMITTED → VALIDATING → VALIDATED → PAID/REFUNDED/DISPUTED
+ *   On pipeline crash: VALIDATING → WORK_SUBMITTED (reset for retry)
  */
 
 const express = require("express");
@@ -22,13 +26,14 @@ const prisma = require("../db/prismaClient");
  * POST /validation/run
  * Trigger the full validation pipeline for a submitted job.
  *
- * Body: { jobId: number }
+ * Body: { jobId: number, commitHash?: string }
  */
 router.post("/run", async (req, res) => {
-  try {
-    const { jobId } = req.body;
-    if (!jobId) return res.status(400).json({ error: "jobId is required" });
+  const { jobId, commitHash } = req.body;
 
+  if (!jobId) return res.status(400).json({ error: "jobId is required" });
+
+  try {
     const job = await prisma.job.findUnique({
       where: { id: parseInt(jobId) }
     });
@@ -41,7 +46,7 @@ router.post("/run", async (req, res) => {
       });
     }
 
-    console.log(`[Validation] Running pipeline for job #${jobId}...`);
+    console.log(`[Validation] Running pipeline for job #${jobId}${commitHash ? ` at commit ${commitHash}` : ""}...`);
 
     // Update state to VALIDATING
     await prisma.job.update({
@@ -49,8 +54,28 @@ router.post("/run", async (req, res) => {
       data: { state: "VALIDATING" }
     });
 
-    // Run validation pipeline
-    const report = await validationService.validateJob(job);
+    // Run validation pipeline (handles its own errors, always returns a report)
+    const report = await validationService.validateJob(job, commitHash || null);
+
+    // Check if pipeline crashed (structured FAIL with error in metadata)
+    if (report.metadata?.error) {
+      console.error(`[Validation] Pipeline crashed for job #${jobId}: ${report.metadata.error}`);
+
+      // Reset state to WORK_SUBMITTED so the job can be re-validated
+      await prisma.job.update({
+        where: { id: job.id },
+        data: { state: "WORK_SUBMITTED" }
+      });
+
+      return res.status(500).json({
+        jobId,
+        verdict: "FAIL",
+        overallScore: 0,
+        error: "Validation pipeline crashed",
+        details: report.metadata.error,
+        report,
+      });
+    }
 
     // Store report in database
     await prisma.validationReport.upsert({
@@ -73,7 +98,7 @@ router.post("/run", async (req, res) => {
     // Determine outcome based on verdict
     const outcome = report.verdict === "PASS" ? "PAID" : report.verdict === "FAIL" ? "REFUNDED" : "DISPUTED";
 
-    // Update job state
+    // Update job state: VALIDATING → VALIDATED
     await prisma.job.update({
       where: { id: job.id },
       data: {
@@ -95,9 +120,21 @@ router.post("/run", async (req, res) => {
 
   } catch (error) {
     console.error("[Validation] Run error:", error);
+
+    // Attempt to reset job state on unhandled error
+    try {
+      await prisma.job.update({
+        where: { id: parseInt(jobId) },
+        data: { state: "WORK_SUBMITTED" }
+      });
+    } catch {
+      // Best-effort reset
+    }
+
     res.status(500).json({
       error: "Validation pipeline failed",
-      details: error.message
+      details: error.message,
+      verdict: "FAIL",
     });
   }
 });
@@ -213,8 +250,6 @@ router.post("/check-ambiguity", async (req, res) => {
     const rawResult = await detectAmbiguity(description);
 
     // Transform backend format → frontend AmbiguityResult format
-    // Backend returns: { isAmbiguous, issueCount, issues: [{type, term, suggestion, source}] }
-    // Frontend expects: { isClean, warnings: [{originalText, reason, suggestion, severity}] }
     const warnings = (rawResult.issues || []).map((issue) => ({
       originalText: issue.term || issue.detail || issue.type || "Unclear requirement",
       reason: issue.type === "vague_term"

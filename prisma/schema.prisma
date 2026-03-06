@@ -28,7 +28,7 @@ model Job {
   description        String
   clientAddress      String
   freelancerAddress  String?
-
+  fundedAt           DateTime?
   techStack          String?
   expectedDeliverable String?
 

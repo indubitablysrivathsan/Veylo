@@ -9,13 +9,21 @@
  * Adjustable per-deployment. Weights must sum to 1.0.
  */
 
+const weights = {
+  execution: parseFloat(process.env.WEIGHT_EXECUTION || "0.50"),
+  structure: parseFloat(process.env.WEIGHT_STRUCTURE || "0.10"),
+  lint: parseFloat(process.env.WEIGHT_LINT || "0.20"),
+  semantic: parseFloat(process.env.WEIGHT_SEMANTIC || "0.20"),
+};
+
+// ─── Weight sum validation ───────────────────────────────────────────
+const weightSum = Object.values(weights).reduce((a, b) => a + b, 0);
+if (Math.abs(weightSum - 1.0) > 0.01) {
+  console.warn(`[ScoringConfig] WARNING: Weights sum to ${weightSum.toFixed(2)}, expected 1.0. Scores may be skewed.`);
+}
+
 module.exports = {
-  weights: {
-    execution: parseFloat(process.env.WEIGHT_EXECUTION || "0.50"),
-    structure: parseFloat(process.env.WEIGHT_STRUCTURE || "0.10"),
-    lint: parseFloat(process.env.WEIGHT_LINT || "0.20"),
-    semantic: parseFloat(process.env.WEIGHT_SEMANTIC || "0.20"),
-  },
+  weights,
 
   thresholds: {
     pass: parseInt(process.env.THRESHOLD_PASS || "75"),  // score >= 75 → payment
@@ -28,7 +36,7 @@ module.exports = {
     // Skip agents that are unavailable (e.g., no Docker, no Ollama)
     skipUnavailable: process.env.SKIP_UNAVAILABLE !== "false",
 
-    // Fallback scores when an agent fails
+    // Fallback scores when an agent fails or times out
     fallbackScores: {
       execution: 0,     // strict — no tests = no score
       structure: 50,    // lenient — assume partial compliance

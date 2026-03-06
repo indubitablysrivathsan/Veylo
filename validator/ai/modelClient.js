@@ -27,6 +27,7 @@ const DEFAULT_TIMEOUT = 60000; // 60s for code analysis
 async function generate(prompt, options = {}) {
   const model = options.model || DEFAULT_MODEL;
   const timeout = options.timeout || DEFAULT_TIMEOUT;
+  const temperature = options.temperature ?? 0.1; // near-zero for deterministic code analysis
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
@@ -40,9 +41,10 @@ async function generate(prompt, options = {}) {
         prompt,
         stream: false,
         options: {
-          temperature: 0.2,     // low temp for deterministic code analysis
-          num_predict: 2048,    // max output tokens
+          temperature,            // configurable per-call (semantic agent uses 0)
+          num_predict: 2048,      // max output tokens
           top_p: 0.9,
+          seed: 42,               // fixed seed for reproducibility
         },
       }),
       signal: controller.signal,

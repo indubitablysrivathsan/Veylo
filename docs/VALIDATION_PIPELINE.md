@@ -2,80 +2,121 @@
 
 ## Overview
 
-The validation pipeline is the core intelligence of the platform. It automatically assesses freelancer submissions through four independent layers, each targeting a different quality dimension.
+The validation pipeline is the core intelligence of the platform. It automatically assesses freelancer submissions through a **Discovery-First Architecture** — no hardcoded file paths or naming conventions required.
 
-## Pipeline Execution Order
+## Pipeline Architecture — Five Stages
 
 ```
-Submission received
+Commit Hash / Repo URL submitted
     │
-    ├─→ [1] Structure Agent    (fast, no dependencies)
-    ├─→ [2] Execution Agent    (requires Docker)
-    ├─→ [3] Lint Agent         (requires language tools)
-    └─→ [4] Semantic Agent     (requires Ollama)
+    ├─→ [1] Entry Point Discovery     (signature-based, agnostic)
+    ├─→ [2] Structure / Viability     (source code, deps, entry, tests, readme)
+    ├─→ [3] Sandboxed Execution       (hardened Docker, 512MB/1CPU/30s/no-net)
+    ├─→ [4] Static Analysis (Lint)    (flake8 / eslint)
+    └─→ [5] Semantic AI Reasoning     (Qwen2.5-Coder, structure-agnostic)
     │
     ▼
-Score Aggregator → Final Score → Verdict → On-chain Recording
+Score Aggregator → Final Score → Verdict → Report Hash → On-chain Recording
 ```
 
-Agents run sequentially. Each agent is independent and produces its own score. If an agent fails, it returns a fallback score (configurable).
+Each agent is wrapped in error handling. If an agent crashes or times out (60s per agent), the pipeline continues with fallback scores.
 
-## Layer Details
+## Scoring Formula
 
-### Layer 1 — Structure Validation
+```
+Final Score = (0.50 × Execution) + (0.10 × Viability) + (0.20 × Lint) + (0.20 × Semantic)
+```
 
-Checks that the repo matches the expected file structure from the test suite spec.
+Weights are configurable via environment variables (`WEIGHT_EXECUTION`, etc.) and validated at startup.
 
-**What it checks:**
-- Required source files exist (e.g., `app.py`, `index.js`)
-- Required directories exist (e.g., `src/`, `tests/`)
-- README.md is present (recommended)
+**Verdicts:**
+| Score Range | Verdict | Action |
+|-------------|---------|--------|
+| ≥ 75 | PASS | Payment released |
+| 50–74 | DISPUTE | Dispute window opens |
+| < 50 | FAIL | Refund to client |
 
-**Runtime:** < 1 second
+## Stage Details
 
-### Layer 2 — Sandboxed Execution
+### Stage 1 — Entry Point Discovery
 
-Runs the AI-generated test suite inside a Docker container with strict limits.
+**Structure-agnostic.** Scans source files for framework signatures instead of expecting hardcoded filenames.
 
-**Docker constraints:**
-- `--network=none` (no internet)
-- `--memory=512m`
-- `--cpus=1`
-- `--read-only` filesystem
-- 30-second timeout
+**Detected frameworks:**
+- Python: FastAPI, Flask, Django, pytest, plain scripts
+- JavaScript: Express, Koa, Hapi, Next.js
+- TypeScript: Express, Next.js
 
-**Output:** test pass/fail counts, runtime output, exit code
+**Output:** `{ framework, entryFile, entryCommand, detectedPort, confidence }`
 
-### Layer 3 — Static Analysis
+### Stage 2 — Structure / Viability
 
-Runs language-appropriate linters.
+Checks five viability criteria (no hardcoded filenames):
+1. Source code files exist (`.py`, `.js`, `.ts`, etc.)
+2. Dependency manifest exists (`requirements.txt`, `package.json`, etc.)
+3. Entry point is detectable (framework signatures found)
+4. Test files exist
+5. README documentation present
 
-- **Python:** flake8 (errors, warnings, style)
-- **JavaScript/TypeScript:** eslint (configurable rules)
+### Stage 3 — Sandboxed Execution
 
-**Scoring:** deducts points per error/warning
+Runs tests inside a Docker container with strict security:
 
-### Layer 4 — Semantic AI Reasoning
+| Flag | Value | Purpose |
+|------|-------|---------|
+| `--network` | `none` | No internet access |
+| `--memory` | `512m` | RAM limit |
+| `--cpus` | `1` | CPU limit |
+| `--read-only` | — | Immutable root filesystem |
+| `--pids-limit` | `64` | Prevent fork bombs |
+| `--security-opt` | `no-new-privileges` | No privilege escalation |
+| `--cap-drop` | `ALL` | Drop all capabilities |
+| `--ulimit nproc` | `64` | Process limit |
+| `--ulimit fsize` | `10MB` | File size limit |
 
-Uses Qwen2.5-Coder (via Ollama) to evaluate requirement compliance at a conceptual level.
+Timeout: 30 seconds (configurable). Force-killed 5s after timeout if still running.
 
-**Input to LLM:**
-- Original task description
-- File listing
-- Test results summary
-- Function signatures
+### Stage 4 — Static Analysis
 
-**Output:** 0–100 score + reasoning text
+- **Python:** flake8 (errors × 3pts, warnings × 1pt deduction)
+- **JavaScript/TypeScript:** eslint (supports `.tsx`)
+
+### Stage 5 — Semantic AI Reasoning
+
+Uses Qwen2.5-Coder (via Ollama) with `temperature: 0` and `seed: 42` for deterministic output.
+
+**Key behavior:** If a test fails due to a naming mismatch but the functional logic exists, the AI gives partial credit (70-85 range). Creative structures are not penalized.
+
+## Deterministic Report Hash
+
+The `reportHash` (SHA-256) is computed from **only deterministic fields**:
+- Overall score, verdict
+- Per-agent scores
+- Test pass/fail counts
+- Error/warning counts
+- Detected language
+
+**Excluded** from hash: timestamp, duration, commitHash (these are metadata).
 
 ## Adding New Validators
-
-The pipeline is designed for extensibility. To add a new validation layer:
 
 1. Create `validator/agents/myNewAgent.js` following the agent interface
 2. Export an async function that returns `{ score: number, ...details }`
 3. Register it in `validator/pipeline/orchestrator.js`
 4. Add its weight to `config/scoringConfig.js`
+5. Add fallback score to `scoringConfig.pipeline.fallbackScores`
 
 ## Error Handling
 
-If any agent throws an error or times out, the pipeline continues with remaining agents and uses the configured fallback score for the failed agent.
+- Each agent is wrapped in a 60-second timeout
+- Crashed agents return fallback scores (configurable in `scoringConfig.js`)
+- Pipeline crash returns structured `verdict: FAIL` with error details
+- Job state resets to `WORK_SUBMITTED` on crash (allows retry)
+- Docker containers are force-killed 5s after timeout
+
+## Blockchain Integration
+
+On completion:
+1. `reportHash` is computed deterministically
+2. `escrowService.recordValidationOnChain(jobId, score, reportHash)` is called
+3. Smart contract transitions: `WORK_SUBMITTED → VALIDATED → PAID/REFUNDED/DISPUTED`
