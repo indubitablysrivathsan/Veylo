@@ -304,27 +304,15 @@ async function triggerValidation(job) {
   try {
     const report = await validationService.validateJob(job);
 
-    // Store validation report in DB
-    await prisma.validationReport.create({
-      data: {
-        jobId: job.id,
-        overallScore: report.overallScore,
-        verdict: report.verdict,
-        executionScore: report.execution?.score || null,
-        testsPassed: report.execution?.testsPassed || null,
-        testsTotal: report.execution?.testsTotal || null,
-        structureScore: report.structure?.score || report.repoViability?.score || null,
-        lintScore: report.lint?.score || null,
-        semanticScore: report.semantic?.score || null,
-        semanticReasoning: report.semantic?.reasoning || null,
-        reportHash: report.reportHash,
-        reportJson: report,
-      },
-    });
-
     // Determine final state based on verdict
-    const finalState = report.verdict === "PASS" ? "VALIDATED" : "VALIDATED";
-    const outcome = report.verdict === "PASS" ? "PAID" : report.verdict === "FAIL" ? "REFUNDED" : "DISPUTED";
+    const finalState = "VALIDATED";
+
+    const outcome =
+      report.verdict === "PASS"
+        ? "PAID"
+        : report.verdict === "FAIL"
+        ? "REFUNDED"
+        : "DISPUTED";
 
     await prisma.job.update({
       where: { id: job.id },
@@ -335,11 +323,17 @@ async function triggerValidation(job) {
       },
     });
 
-    console.log(`[Jobs] Job #${job.id} validation complete: score=${report.overallScore}, verdict=${report.verdict}, outcome=${outcome}`);
+    console.log(
+      `[Jobs] Job #${job.id} validation complete: score=${report.overallScore}, verdict=${report.verdict}, outcome=${outcome}`
+    );
 
   } catch (err) {
-    console.error(`[Jobs] Validation failed for job #${job.id}:`, err.message);
-    // Revert to WORK_SUBMITTED so it can be retried
+    console.error(
+      `[Jobs] Validation failed for job #${job.id}:`,
+      err.message
+    );
+
+    // revert to retryable state
     await prisma.job.update({
       where: { id: job.id },
       data: { state: "WORK_SUBMITTED" },

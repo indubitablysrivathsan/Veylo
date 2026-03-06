@@ -57,7 +57,7 @@ async function validateJob(job, commitHash) {
     await reportService.storeReport(job.id, report);
 
     // Step 4: Record on-chain if available
-    if (escrowService.isAvailable()) {
+    if (false && escrowService.isAvailable()) {
       try {
         await escrowService.recordValidationOnChain(job.id, report.overallScore, report.reportHash);
         report.onChainTxHash = "recorded";

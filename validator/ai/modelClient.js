@@ -12,7 +12,7 @@
  */
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen2.5-coder:3b";
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "deepseek-coder:1.3b";
 const DEFAULT_TIMEOUT = 60000; // 60s for code analysis
 
 /**
@@ -41,11 +41,12 @@ async function generate(prompt, options = {}) {
         prompt,
         stream: false,
         options: {
-          temperature,            // configurable per-call (semantic agent uses 0)
-          num_predict: 2048,      // max output tokens
-          top_p: 0.9,
-          seed: 42,               // fixed seed for reproducibility
-        },
+  temperature,
+  num_predict: 200,
+  num_ctx: 2048,
+  top_p: 0.9,
+  num_thread: 8
+},
       }),
       signal: controller.signal,
     });
